@@ -10,8 +10,15 @@
 </head>
 <body>
 <div class="auth-shell">
-  <div class="auth-card wide">
-    <div class="auth-brand"><span class="brand-mark">N</span></div>
+  <div class="auth-card wide checkout-card">
+    <div class="auth-brand"><span class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M17.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M6.5 14.5L17.5 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="tick" cx="17.5" cy="7" r="2.3" fill="#34e0a1"/>
+      </svg>
+    </span></div>
     <h1>Start your free 7-day trial</h1>
     <p class="sub">You're one step away from your full ledger</p>
 
@@ -23,9 +30,8 @@
       <div class="amt">$0<span style="font-size:13px;font-weight:600;color:var(--text-muted);">today</span></div>
     </div>
 
-    <div class="auth-actions">
-      <button type="button" class="btn btn-primary btn-block" id="payBtn">Continue to Stripe Checkout</button>
-    </div>
+    <div id="checkoutEl"></div>
+    <div class="checkout-loading" id="checkoutLoading">Loading secure checkout…</div>
 
     <div class="secure-note">
       <span class="card-icons"><span>VISA</span><span>MC</span><span>AMEX</span></span>
@@ -35,32 +41,47 @@
   </div>
 </div>
 
+<script src="https://js.stripe.com/v3/"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/store.js"></script>
 <script src="js/seed.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  // TODO(supabase): once a Supabase Edge Function + Stripe webhook exist,
-  // that becomes the real source of truth for trial/active/expired status.
-  // Until then, startTrial() below is a stand-in so the app UI
-  // (plan label, subscription gating) reflects the trial immediately.
-  const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_aFabJ377I39XfDoe0M5Rm00';
+  // TODO(supabase): once a Stripe webhook exists, that becomes the real
+  // source of truth for trial/active/expired status. Until then,
+  // startTrial() below is a stand-in so the app UI (plan label,
+  // subscription gating) reflects the trial immediately on return.
+  const STRIPE_PUBLISHABLE_KEY = 'pk_live_51PpYCrRr06GLYziwcqpNHISMW9aNFXYgRslqp1Sef3MwMOUpmqZ65m5jRXfReAwUZHYxu45vGeZXRS3Tn7lZcSZb00rvq7Z4G2';
 
   (async () => {
     const user = await NextUpAuth.requireAuth('signup.html');
     if (!user) return;
     if (user.subscribed) { window.location.href = 'dashboard.html'; return; }
 
-    document.getElementById('payBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('payBtn');
-      btn.disabled = true; btn.textContent = 'Redirecting to Stripe…';
+    // Returning from an embedded Stripe Checkout that just completed.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('session_id')) {
       await NextUpAuth.startTrial(user.id, 'monthly');
-      const url = new URL(STRIPE_PAYMENT_LINK);
-      url.searchParams.set('prefilled_email', user.email);
-      url.searchParams.set('client_reference_id', user.email);
-      window.location.href = url.toString();
-    });
+      window.location.href = 'dashboard.html';
+      return;
+    }
+
+    try {
+      const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+      const returnUrl = window.location.href.split('?')[0];
+      const { data, error } = await supabaseClient.functions.invoke('create-checkout-session', {
+        body: { email: user.email, userId: user.id, origin: returnUrl }
+      });
+      if (error || !data || !data.clientSecret) {
+        throw new Error((data && data.error) || (error && error.message) || 'Could not start checkout.');
+      }
+      const checkout = await stripe.initEmbeddedCheckout({ clientSecret: data.clientSecret });
+      document.getElementById('checkoutLoading').remove();
+      checkout.mount('#checkoutEl');
+    } catch (err) {
+      document.getElementById('checkoutLoading').textContent = 'Something went wrong loading checkout: ' + err.message;
+    }
   })();
 </script>
 </body>

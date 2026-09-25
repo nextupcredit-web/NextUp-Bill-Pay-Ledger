@@ -11,7 +11,14 @@
 <body>
 <div class="auth-shell">
   <div class="auth-card">
-    <div class="auth-brand"><span class="brand-mark">N</span></div>
+    <div class="auth-brand"><span class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M17.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M6.5 14.5L17.5 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="tick" cx="17.5" cy="7" r="2.3" fill="#34e0a1"/>
+      </svg>
+    </span></div>
     <h1>Welcome back</h1>
     <p class="sub">Log in to your NextUp Bill Pay Ledger</p>
 
@@ -29,9 +36,6 @@
         <button type="submit" class="btn btn-primary btn-block">Log In</button>
       </div>
     </form>
-
-    <div class="auth-divider">or</div>
-    <button class="btn btn-secondary btn-block" id="guestBtn">Continue with a demo account</button>
 
     <div class="auth-alt">Don't have an account? <a href="signup.html" style="color:var(--chase-blue);font-weight:700;">Sign up</a></div>
   </div>
@@ -54,13 +58,6 @@
     if (!res.ok) { btn.disabled = false; errEl.textContent = res.error; errEl.classList.add('show'); return; }
     const user = await NextUpAuth.currentUser();
     window.location.href = user.subscribed ? 'dashboard.html' : 'checkout.html';
-  });
-
-  document.getElementById('guestBtn').addEventListener('click', async (e) => {
-    e.target.disabled = true;
-    const res = await NextUpAuth.continueAsGuest();
-    if (!res.ok) { e.target.disabled = false; alert(res.error); return; }
-    window.location.href = 'dashboard.html';
   });
 </script>
 </body>

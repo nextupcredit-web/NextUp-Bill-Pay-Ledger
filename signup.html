@@ -11,7 +11,14 @@
 <body>
 <div class="auth-shell">
   <div class="auth-card">
-    <div class="auth-brand"><span class="brand-mark">N</span></div>
+    <div class="auth-brand"><span class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M17.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M6.5 14.5L17.5 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="tick" cx="17.5" cy="7" r="2.3" fill="#34e0a1"/>
+      </svg>
+    </span></div>
     <h1>Create your account</h1>
     <p class="sub">Start your free 7-day trial — then $9/month</p>
 
@@ -40,9 +47,6 @@
       </div>
     </form>
 
-    <div class="auth-divider">or</div>
-    <button class="btn btn-secondary btn-block" id="guestBtn">Try it free as a demo account</button>
-
     <div class="auth-alt">Already have an account? <a href="login.html" style="color:var(--chase-blue);font-weight:700;">Log in</a></div>
   </div>
 </div>
@@ -67,13 +71,6 @@
     const res = await NextUpAuth.signUp(name, email, password);
     if (!res.ok) { btn.disabled = false; errEl.textContent = res.error; errEl.classList.add('show'); return; }
     window.location.href = 'checkout.html';
-  });
-
-  document.getElementById('guestBtn').addEventListener('click', async (e) => {
-    e.target.disabled = true;
-    const res = await NextUpAuth.continueAsGuest();
-    if (!res.ok) { e.target.disabled = false; alert(res.error); return; }
-    window.location.href = 'dashboard.html';
   });
 </script>
 </body>

@@ -13,7 +13,14 @@
 
 <nav class="nav">
   <div class="nav-inner">
-    <div class="brand"><span class="brand-mark">N</span> NextUp Bill Pay Ledger</div>
+    <div class="brand"><span class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M17.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M6.5 14.5L17.5 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="tick" cx="17.5" cy="7" r="2.3" fill="#34e0a1"/>
+      </svg>
+    </span> NextUp Bill Pay Ledger</div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">&#9776;</button>
     <div class="nav-menu" id="navMenu">
       <div class="nav-links">
@@ -30,6 +37,10 @@
 </nav>
 
 <header class="hero">
+  <span class="hero-blob b1"></span>
+  <span class="hero-blob b2"></span>
+  <span class="hero-blob b3"></span>
+
   <div class="hero-inner">
     <span class="eyebrow">Built for W2 + self-employed income</span>
     <h1>Every bill, every debt, every dollar <span>in one clean view.</span></h1>
@@ -43,12 +54,31 @@
 
   <div class="hero-mock">
     <div class="mock-bar"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span></div>
-    <div class="mock-body">
-      <div class="mock-card blue"><div class="lbl">Monthly Income</div><div class="val">$6,832</div></div>
-      <div class="mock-card"><div class="lbl">Monthly Expenses</div><div class="val">$5,540</div></div>
-      <div class="mock-card green"><div class="lbl">Monthly Margin</div><div class="val">+$1,292</div></div>
-      <div class="mock-card orange"><div class="lbl">Business Net</div><div class="val">-$547</div></div>
+    <div class="mock-blur">
+      <div class="mock-body">
+        <div class="mock-card blue"><div class="lbl">Monthly Income</div><div class="val">$6,832</div></div>
+        <div class="mock-card"><div class="lbl">Monthly Expenses</div><div class="val">$5,540</div></div>
+        <div class="mock-card green"><div class="lbl">Monthly Margin</div><div class="val">+$1,292</div></div>
+        <div class="mock-card orange"><div class="lbl">Business Net</div><div class="val">-$547</div></div>
+      </div>
+      <div class="mock-panels">
+        <div class="mock-panel">
+          <div class="mock-panel-title">📅 Interactive calendar</div>
+          <div class="mock-calendar">
+            <span></span><span></span><span class="d-bill"></span><span></span><span class="d-income"></span><span></span><span></span>
+            <span></span><span class="d-debt"></span><span></span><span></span><span class="d-bill"></span><span></span><span class="d-income"></span>
+            <span></span><span></span><span class="d-bill"></span><span></span><span></span><span class="d-debt"></span><span></span>
+          </div>
+        </div>
+        <div class="mock-panel">
+          <div class="mock-panel-title">❤️‍🔥 Debt snowball</div>
+          <div class="mock-debt-row"><span>Visa</span><div class="mock-bar-track"><div class="mock-bar-fill" style="--pct:72%"></div></div></div>
+          <div class="mock-debt-row"><span>Store Card</span><div class="mock-bar-track"><div class="mock-bar-fill" style="--pct:45%"></div></div></div>
+          <div class="mock-debt-row"><span>Car Loan</span><div class="mock-bar-track"><div class="mock-bar-fill" style="--pct:20%"></div></div></div>
+        </div>
+      </div>
     </div>
+    <div class="mock-peek-badge"><span>&#128274; Your real numbers, unlocked after signup</span></div>
   </div>
 </header>
 
@@ -140,7 +170,14 @@
 
 <footer class="footer">
   <div class="footer-inner">
-    <div class="brand"><span class="brand-mark">N</span> NextUp Bill Pay Ledger</div>
+    <div class="brand"><span class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M17.5 17V7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M6.5 14.5L17.5 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle class="tick" cx="17.5" cy="7" r="2.3" fill="#34e0a1"/>
+      </svg>
+    </span> NextUp Bill Pay Ledger</div>
     <div>&copy; 2026 NextUp Bill Pay Ledger. All rights reserved.</div>
     <div class="footer-legal">
       Support: <a href="mailto:billpay@nextupcapitalgroup.com">billpay@nextupcapitalgroup.com</a><br>
