@@ -137,7 +137,7 @@ const NextUpCalendar = (() => {
     const total = events.reduce((s,e) => s + e.sign * e.amount, 0);
     const body = document.getElementById('dayModalBody');
     if (!events.length) {
-      body.innerHTML = `<div class="empty-state"><div class="ic">🗓️</div>Nothing scheduled this day.</div>`;
+      body.innerHTML = `<div class="empty-state"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></div>Nothing scheduled this day.</div>`;
     } else {
       body.innerHTML = events.map(e => `
         <div class="modal-item ${e.kind}">

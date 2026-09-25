@@ -236,11 +236,67 @@ ul { margin: 0; padding: 0; list-style: none; }
 .footer-legal { width: 100%; font-size: 12px; line-height: 1.6; color: var(--text-faint); }
 .footer-legal a { color: inherit; text-decoration: underline; }
 
+/* ---------- scroll reveal ---------- */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.in-view { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* ---------- sticky nav scrolled state ---------- */
+.nav.scrolled { box-shadow: 0 2px 14px rgba(8,30,61,0.08); background: rgba(255,255,255,0.97); }
+
+/* ---------- trust bar ---------- */
+.trust-bar { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: #fff; padding: 22px 24px; }
+.trust-bar-inner {
+  max-width: 1100px; margin: 0 auto; display: flex; justify-content: center; align-items: center;
+  gap: 40px; flex-wrap: wrap; text-align: center;
+}
+.trust-item { display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; color: var(--text-muted); }
+.trust-item .ic { font-size: 17px; color: var(--chase-blue); }
+
+/* ---------- inline SVG icon sizing ---------- */
+.ic svg, .feature-icon svg, .mock-panel-title svg, .mock-peek-badge svg { width: 1em; height: 1em; display: inline-block; vertical-align: -0.15em; stroke: currentColor; flex-shrink: 0; }
+.feature-icon svg { width: 20px; height: 20px; vertical-align: middle; }
+.mock-panel-title svg, .mock-peek-badge svg { margin-right: 5px; }
+
+/* ---------- FAQ ---------- */
+.faq-wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.faq-item { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.faq-q {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 18px 22px; background: none; border: none; text-align: left; font-size: 15.5px; font-weight: 700;
+  color: var(--chase-blue-darker); cursor: pointer;
+}
+.faq-q .chev { font-size: 14px; color: var(--text-faint); transition: transform .25s ease; flex-shrink: 0; }
+.faq-item.open .faq-q .chev { transform: rotate(180deg); }
+.faq-a {
+  max-height: 0; overflow: hidden; transition: max-height .3s ease, padding .3s ease;
+  padding: 0 22px; font-size: 14.5px; color: var(--text-muted); line-height: 1.6;
+}
+.faq-item.open .faq-a { max-height: 260px; padding: 0 22px 20px; }
+
+/* ---------- closing CTA banner ---------- */
+.cta-banner {
+  margin: 0 24px 72px; max-width: 1100px; margin-left: auto; margin-right: auto;
+  background: linear-gradient(135deg, var(--chase-blue-darker), var(--chase-blue) 75%);
+  border-radius: var(--radius-lg); padding: 56px 40px; text-align: center; position: relative; overflow: hidden;
+}
+.cta-banner h2 { color: #fff; font-size: 30px; font-weight: 800; letter-spacing: -0.01em; }
+.cta-banner p { color: rgba(255,255,255,0.82); margin-top: 12px; font-size: 15.5px; }
+.cta-banner .hero-actions { margin-top: 26px; }
+.cta-banner .btn-secondary { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.35); }
+.cta-banner .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+
 /* ============================================================
    Auth / checkout pages
    ============================================================ */
-.auth-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; background: linear-gradient(160deg, var(--chase-blue-darker), var(--chase-blue) 65%); }
+.auth-shell { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px 20px; background: linear-gradient(160deg, var(--chase-blue-darker), var(--chase-blue) 65%); }
 .auth-card { background: #fff; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 40px; width: 100%; max-width: 420px; }
+.auth-legal-links { text-align: center; font-size: 12.5px; }
+.auth-legal-links a { color: rgba(255,255,255,0.75); }
+.auth-legal-links a:hover { color: #fff; }
+.auth-terms-note { text-align: center; margin-top: 14px; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
 .auth-card.wide { max-width: 520px; }
 .auth-card.checkout-card { max-width: 560px; padding: 40px 40px 32px; }
 
@@ -574,3 +630,14 @@ ul { margin: 0; padding: 0; list-style: none; }
   .cal-chip { width: 7px; height: 7px; min-width: 0; padding: 0; border-radius: 50%; font-size: 0; border-left: none; overflow: visible; }
   .cal-more, .cal-day-total { display: none; }
 }
+
+/* ---------- legal pages ---------- */
+.legal-wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 90px; }
+.legal-wrap .updated { color: var(--text-faint); font-size: 13px; margin-top: 6px; }
+.legal-wrap h1 { font-size: 32px; font-weight: 800; color: var(--chase-blue-darker); letter-spacing: -0.01em; }
+.legal-wrap h2 { font-size: 19px; font-weight: 700; color: var(--chase-blue-darker); margin-top: 40px; }
+.legal-wrap p, .legal-wrap li { font-size: 15px; line-height: 1.7; color: var(--text-muted); margin-top: 12px; }
+.legal-wrap ul, .legal-wrap ol { margin-top: 12px; padding-left: 22px; }
+.legal-wrap li { margin-top: 6px; }
+.legal-wrap a { color: var(--chase-blue); font-weight: 600; }
+.legal-notice { margin-top: 28px; padding: 14px 16px; background: var(--chase-blue-light); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }

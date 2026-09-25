@@ -13,6 +13,7 @@ const NextUpApp = (() => {
   const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const WD_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const NTH_LABEL = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th' };
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>';
 
   function fmt(n) { return NextUpStore.fmtMoney(n); }
   function planLabel(user) {
@@ -55,6 +56,29 @@ const NextUpApp = (() => {
       NextUpAuth.logOut();
       window.location.href = 'index.html';
     }));
+
+    const billingBtn = document.getElementById('billingTrigger');
+    if (billingBtn) {
+      if (user.isOwner || user.plan === 'demo') {
+        billingBtn.style.display = 'none';
+      } else {
+        billingBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const original = billingBtn.innerHTML;
+          billingBtn.innerHTML = '<span class="ic">&#128179;</span> Loading…';
+          try {
+            const { data, error } = await supabaseClient.functions.invoke('create-billing-portal-session', {
+              body: { returnUrl: window.location.href }
+            });
+            if (error || !data || !data.url) throw new Error((data && data.error) || (error && error.message) || 'Could not open billing portal.');
+            window.location.href = data.url;
+          } catch (err) {
+            billingBtn.innerHTML = original;
+            toast(err.message);
+          }
+        });
+      }
+    }
 
     bindGlobalDelegation();
     NextUpCalendar.mount(document.getElementById('calRoot'), () => DATA);
@@ -293,7 +317,7 @@ const NextUpApp = (() => {
       ev.forEach(e => items.push(e));
       if (items.length > 40) break;
     }
-    if (!items.length) { el.innerHTML = `<div class="empty-state"><div class="ic">✅</div>Nothing due in the next week.</div>`; return; }
+    if (!items.length) { el.innerHTML = `<div class="empty-state"><div class="ic">${ICON_CHECK}</div>Nothing due in the next week.</div>`; return; }
     el.innerHTML = items.slice(0, 10).map(e => `
       <div class="modal-item ${e.kind}">
         <div><div class="name">${escapeHtml(e.name)}</div><div style="font-size:11px;color:var(--text-faint);">${e.date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div></div>
@@ -304,7 +328,7 @@ const NextUpApp = (() => {
   function renderDebtSummaryMini() {
     const el = document.getElementById('ovDebtSummary');
     const active = DATA.debts.filter(d => !d.noBalance && Number(d.balance) > 0);
-    if (!active.length) { el.innerHTML = `<div class="empty-state"><div class="ic">🎉</div>No tracked debt — you're clear!</div>`; return; }
+    if (!active.length) { el.innerHTML = `<div class="empty-state"><div class="ic">${ICON_CHECK}</div>No tracked debt — you're clear!</div>`; return; }
     const sim = NextUpStore.simulateSnowball(DATA.debts, DATA.settings.snowballExtra);
     const totalBalance = active.reduce((s, d) => s + Number(d.balance), 0);
     const top3 = [...active].sort((a,b) => a.balance - b.balance).slice(0, 3);
@@ -519,7 +543,7 @@ const NextUpApp = (() => {
       </div>
 
       <div class="section-title">Snowball Order — Smallest to Largest</div>
-      <div id="debtCards">${active.map((d, i) => debtCardHtml(d, i + 1)).join('') || `<div class="empty-state"><div class="ic">🎉</div>No active balances — nice work.</div>`}</div>
+      <div id="debtCards">${active.map((d, i) => debtCardHtml(d, i + 1)).join('') || `<div class="empty-state"><div class="ic">${ICON_CHECK}</div>No active balances — nice work.</div>`}</div>
 
       ${paused.length ? `<div class="section-title">Paused, No Balance, or Payment-Plan Debts</div><div id="debtPausedCards">${paused.map(d => debtCardHtml(d, null)).join('')}</div>` : ''}
 

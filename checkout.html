@@ -35,10 +35,12 @@
 
     <div class="secure-note">
       <span class="card-icons"><span>VISA</span><span>MC</span><span>AMEX</span></span>
-      &#128274; You won't be charged today. $9/mo starts after your trial ends — cancel anytime before then. Payment is handled securely by Stripe.
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.15em;margin-right:4px;"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg> You won't be charged today. $9/mo starts after your trial ends — cancel anytime before then. Payment is handled securely by Stripe.
     </div>
     <div class="auth-alt" style="margin-top:14px;">Not ready yet? <a href="index.html" style="color:var(--chase-blue);font-weight:700;">Back to home</a></div>
+    <div class="auth-terms-note">By continuing, you agree to our <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.</div>
   </div>
+  <div class="auth-legal-links"><a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a></div>
 </div>
 
 <script src="https://js.stripe.com/v3/"></script>
@@ -48,10 +50,10 @@
 <script src="js/seed.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  // TODO(supabase): once a Stripe webhook exists, that becomes the real
-  // source of truth for trial/active/expired status. Until then,
-  // startTrial() below is a stand-in so the app UI (plan label,
-  // subscription gating) reflects the trial immediately on return.
+  // startTrial() gives the app immediate UI feedback (plan label, subscription
+  // gating) the moment checkout completes. The stripe-webhook Edge Function is
+  // the durable source of truth for status going forward once it's registered
+  // in the Stripe Dashboard with a signing secret.
   const STRIPE_PUBLISHABLE_KEY = 'pk_live_51PpYCrRr06GLYziwcqpNHISMW9aNFXYgRslqp1Sef3MwMOUpmqZ65m5jRXfReAwUZHYxu45vGeZXRS3Tn7lZcSZb00rvq7Z4G2';
 
   (async () => {

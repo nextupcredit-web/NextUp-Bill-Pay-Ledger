@@ -10,8 +10,13 @@ create table if not exists public.profiles (
   is_owner boolean not null default false,   -- true only for the app owner's real-data account
   trial_started_at timestamptz,
   trial_ends_at timestamptz,
+  stripe_customer_id text,                   -- set by the stripe-webhook function on first checkout
+  stripe_subscription_id text,               -- set/cleared by the stripe-webhook function
   created_at timestamptz not null default now()
 );
+
+create index if not exists profiles_stripe_customer_id_idx on public.profiles (stripe_customer_id);
+create index if not exists profiles_stripe_subscription_id_idx on public.profiles (stripe_subscription_id);
 
 alter table public.profiles enable row level security;
 
