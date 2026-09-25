@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout · NextUp Bill Pay Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="auth-shell">
+  <div class="auth-card wide">
+    <div class="auth-brand"><span class="brand-mark">N</span></div>
+    <h1>Start your free 7-day trial</h1>
+    <p class="sub">You're one step away from your full ledger</p>
+
+    <div class="plan-summary">
+      <div>
+        <div class="name">NextUp Bill Pay Ledger — Pro</div>
+        <div class="sub">7 days free, then $9/mo · cancel anytime</div>
+      </div>
+      <div class="amt">$0<span style="font-size:13px;font-weight:600;color:var(--text-muted);">today</span></div>
+    </div>
+
+    <div class="auth-actions">
+      <button type="button" class="btn btn-primary btn-block" id="payBtn">Continue to Stripe Checkout</button>
+    </div>
+
+    <div class="secure-note">
+      <span class="card-icons"><span>VISA</span><span>MC</span><span>AMEX</span></span>
+      &#128274; You won't be charged today. $9/mo starts after your trial ends — cancel anytime before then. Payment is handled securely by Stripe.
+    </div>
+    <div class="auth-alt" style="margin-top:14px;">Not ready yet? <a href="index.html" style="color:var(--chase-blue);font-weight:700;">Back to home</a></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/store.js"></script>
+<script src="js/seed.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  // TODO(supabase): once a Supabase Edge Function + Stripe webhook exist,
+  // that becomes the real source of truth for trial/active/expired status.
+  // Until then, startTrial() below is a stand-in so the app UI
+  // (plan label, subscription gating) reflects the trial immediately.
+  const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_aFabJ377I39XfDoe0M5Rm00';
+
+  (async () => {
+    const user = await NextUpAuth.requireAuth('signup.html');
+    if (!user) return;
+    if (user.subscribed) { window.location.href = 'dashboard.html'; return; }
+
+    document.getElementById('payBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('payBtn');
+      btn.disabled = true; btn.textContent = 'Redirecting to Stripe…';
+      await NextUpAuth.startTrial(user.id, 'monthly');
+      const url = new URL(STRIPE_PAYMENT_LINK);
+      url.searchParams.set('prefilled_email', user.email);
+      url.searchParams.set('client_reference_id', user.email);
+      window.location.href = url.toString();
+    });
+  })();
+</script>
+</body>
+</html>

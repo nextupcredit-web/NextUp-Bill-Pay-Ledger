@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · NextUp Bill Pay Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="mobile-topbar">
+  <div class="brand"><span class="brand-mark">N</span> NextUp</div>
+  <div class="mobile-topbar-actions">
+    <div class="side-avatar avatar-display">?</div>
+    <button class="logout-trigger" aria-label="Log out"><span>&#8618;</span></button>
+  </div>
+</header>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">N</span> NextUp</div>
+    <nav class="side-nav">
+      <a href="#" class="side-link active" data-tab="overview"><span class="ic">&#128202;</span> Overview</a>
+      <a href="#" class="side-link" data-tab="income"><span class="ic">&#128176;</span> Income</a>
+      <a href="#" class="side-link" data-tab="bills"><span class="ic">&#129534;</span> Bills</a>
+      <a href="#" class="side-link" data-tab="debts"><span class="ic">&#10084;&#65039;&#8205;&#128293;</span> Debt Snowball</a>
+      <a href="#" class="side-link" data-tab="business"><span class="ic">&#128188;</span> Business</a>
+      <a href="#" class="side-link" data-tab="calendar"><span class="ic">&#128197;</span> Calendar</a>
+      <a href="#" class="side-link" data-tab="all"><span class="ic">&#128203;</span> All Items</a>
+    </nav>
+    <div class="side-footer">
+      <div class="side-user">
+        <div class="side-avatar avatar-display">?</div>
+        <div>
+          <div class="user-name-display" style="font-weight:700;color:#fff;">—</div>
+          <div class="user-plan-display" style="font-size:11.5px;color:rgba(255,255,255,0.6);">—</div>
+        </div>
+      </div>
+      <a href="#" class="side-link logout-trigger"><span class="ic">&#8618;</span> Log out</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-header">
+      <div>
+        <h1 id="mainTitle">Overview</h1>
+        <div class="sub" id="mainSub">Your whole financial picture, updated in real time.</div>
+      </div>
+    </div>
+
+    <div class="tabpage active" id="tab-overview"></div>
+    <div class="tabpage" id="tab-income"></div>
+    <div class="tabpage" id="tab-bills"></div>
+    <div class="tabpage" id="tab-debts"></div>
+    <div class="tabpage" id="tab-business"></div>
+    <div class="tabpage" id="tab-calendar"><div id="calRoot"></div></div>
+    <div class="tabpage" id="tab-all"></div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="dayModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="dayModalTitle">Day</h3>
+      <button class="modal-close" id="dayModalClose">&times;</button>
+    </div>
+    <div id="dayModalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/store.js"></script>
+<script src="js/seed.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/app.js"></script>
+<script>
+  (async () => {
+    const user = await NextUpAuth.requireSubscription('checkout.html');
+    if (user) NextUpApp.init(user);
+  })();
+</script>
+</body>
+</html>
