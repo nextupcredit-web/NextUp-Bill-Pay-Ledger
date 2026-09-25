@@ -14,6 +14,7 @@ const NextUpApp = (() => {
   const WD_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const NTH_LABEL = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th' };
   const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>';
+  const ICON_CARD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2.2"/><path d="M2.5 9.8h19"/></svg>';
 
   function fmt(n) { return NextUpStore.fmtMoney(n); }
   function planLabel(user) {
@@ -49,13 +50,26 @@ const NextUpApp = (() => {
     document.querySelectorAll('.avatar-display').forEach(el => el.textContent = (user.name || user.email || '?').trim().charAt(0).toUpperCase());
 
     document.querySelectorAll('.side-link[data-tab]').forEach(link => {
-      link.addEventListener('click', (e) => { e.preventDefault(); switchTab(link.dataset.tab); });
+      link.addEventListener('click', (e) => { e.preventDefault(); switchTab(link.dataset.tab); closeSidebar(); });
     });
     document.querySelectorAll('.logout-trigger').forEach(btn => btn.addEventListener('click', (e) => {
       e.preventDefault();
       NextUpAuth.logOut();
       window.location.href = 'index.html';
     }));
+
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+    const sidebarEl = document.querySelector('.sidebar');
+    if (sidebarToggle && sidebarEl) {
+      sidebarToggle.addEventListener('click', () => {
+        const open = sidebarEl.classList.toggle('open');
+        sidebarToggle.setAttribute('aria-expanded', String(open));
+        if (sidebarBackdrop) sidebarBackdrop.classList.toggle('show', open);
+      });
+      if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSidebar(); });
+    }
 
     const billingBtn = document.getElementById('billingTrigger');
     if (billingBtn) {
@@ -65,7 +79,7 @@ const NextUpApp = (() => {
         billingBtn.addEventListener('click', async (e) => {
           e.preventDefault();
           const original = billingBtn.innerHTML;
-          billingBtn.innerHTML = '<span class="ic">&#128179;</span> Loading…';
+          billingBtn.innerHTML = '<span class="ic">' + ICON_CARD + '</span> Loading…';
           try {
             const { data, error } = await supabaseClient.functions.invoke('create-billing-portal-session', {
               body: { returnUrl: window.location.href }
@@ -89,6 +103,15 @@ const NextUpApp = (() => {
   }
 
   function closeDayModal() { document.getElementById('dayModalOverlay').classList.remove('show'); }
+
+  function closeSidebar() {
+    const sidebarEl = document.querySelector('.sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+    if (sidebarEl) sidebarEl.classList.remove('open');
+    if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('show');
+  }
 
   function switchTab(tab) {
     activeTab = tab;
@@ -222,7 +245,7 @@ const NextUpApp = (() => {
 
           <div class="card">
             <div class="card-head"><h3>Breakdown</h3></div>
-            <table class="table">
+            <div class="table-wrap"><table class="table table-compact">
               <tbody>
                 <tr><td><span class="pill pill-bill">Bills</span></td><td style="text-align:right;">${fmt(s.billsMonthly)}/mo</td></tr>
                 <tr><td><span class="pill pill-debt">Debt payments</span></td><td style="text-align:right;">${fmt(s.debtsMonthly)}/mo</td></tr>
@@ -230,7 +253,7 @@ const NextUpApp = (() => {
                 <tr><td><span class="pill pill-income">Business income</span></td><td style="text-align:right;">${fmt(s.businessIncomeMonthly)}/mo</td></tr>
                 <tr><td>Business net position</td><td style="text-align:right;font-weight:700;color:${s.businessNet>=0?'var(--income-green)':'var(--debt-red)'}">${fmt(s.businessNet)}/mo</td></tr>
               </tbody>
-            </table>
+            </table></div>
           </div>
 
           <div class="card">
