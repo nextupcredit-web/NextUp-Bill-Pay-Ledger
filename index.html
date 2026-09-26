@@ -3,11 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NextUp Bill Pay Ledger — Smart Income & Expense Tracker</title>
-<meta name="description" content="NextUp is a smart, automatic income and expense tracker for bills, debt payoff, and business finances. Real-time margins, an interactive calendar, and a debt snowball tracker — built for W2 and self-employed income alike.">
+<title>NextUp Bill Pay Ledger — Fix Your Whole Financial Picture</title>
+<meta name="description" content="NextUp brings your income, bills, debt payoff, savings, business P&L, and credit score into one place. Real-time margins, a Bill Pay Account, a debt snowball tracker, and monthly progress tracking — built for W2 and self-employed income alike.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#085eb0">
 </head>
 <body>
 
@@ -29,6 +33,7 @@
         <a href="#pricing">Pricing</a>
       </div>
       <div class="nav-cta">
+        <a href="demo.html" class="btn btn-ghost">View live demo</a>
         <a href="login.html" class="btn btn-ghost">Log in</a>
         <a href="signup.html" class="btn btn-primary">Start free 7-day trial</a>
       </div>
@@ -42,14 +47,14 @@
   <span class="hero-blob b3"></span>
 
   <div class="hero-inner">
-    <span class="eyebrow">Smart, automatic income &amp; expense tracking</span>
-    <h1>Every bill, every debt, every dollar <span>in one clean view.</span></h1>
-    <p class="lead">NextUp is a smart income and expense tracker that keeps your personal bills, your debt snowball, and your business income and expenses side by side — with real-time weekly and monthly margins so you always know exactly where your money stands. Built for W2 and self-employed income alike.</p>
+    <span class="eyebrow">Your whole financial picture, fixed and organized</span>
+    <h1>Income, bills, debt, savings, and business <span>all in one clean view.</span></h1>
+    <p class="lead">NextUp keeps your personal bills, your debt snowball, your savings and investing, and your business income and expenses side by side — with real-time margins, a dedicated Bill Pay Account, and monthly progress tracking so you always know exactly where your money stands. Built for W2 and self-employed income alike.</p>
     <div class="hero-actions">
       <a href="signup.html" class="btn btn-primary">Start your free 7-day trial</a>
-      <a href="login.html" class="btn btn-secondary">I already have an account</a>
+      <a href="demo.html" class="btn btn-secondary">Explore the live demo &rarr;</a>
     </div>
-    <div class="hero-note">Free for 7 days, then $9/mo · Cancel anytime · Your data stays yours</div>
+    <div class="hero-note">Free for 7 days, then $9/mo · Cancel anytime · No login needed to try the demo</div>
   </div>
 
   <div class="hero-mock">
@@ -94,13 +99,18 @@
 <section class="section reveal" id="features">
   <div class="section-head">
     <h2>Everything, organized. Nothing, hidden.</h2>
-    <p>Bills, debt, and business stay in their own sections — but your totals always reflect the whole picture.</p>
+    <p>Income, bills, debt, savings, and business stay in their own sections — but your totals always reflect the whole picture.</p>
   </div>
   <div class="feature-grid">
     <div class="feature-card">
       <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.8c0-1.3-1.3-2.3-3-2.3s-3 .9-3 2.1c0 3.1 6 1.4 6 4.5 0 1.3-1.3 2.2-3 2.2s-3-1-3-2.3"/></svg></div>
       <h3>Real-time margins</h3>
       <p>Edit any expense or income and watch weekly and monthly margins recalculate instantly — no save button, no refresh.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+      <h3>Bill Pay Account</h3>
+      <p>We calculate a recommended weekly, biweekly, or monthly transfer to cover every bill — override it anytime, it's always visible on your dashboard.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2.5-1.6L13 21l-2.5-1.6L8 21l-2-1.6z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></div>
@@ -110,22 +120,27 @@
     <div class="feature-card">
       <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l7 7 4-4 7 7"/><path d="M15 16h6v-6"/></svg></div>
       <h3>Debt snowball tracker</h3>
-      <p>Debts sorted smallest to largest, interest rate and payoff date calculated live, with a progress bar for every balance.</p>
+      <p>Debts sorted smallest to largest, interest rate and payoff date calculated live, with a clean collapsible card for every balance.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="M8 7.5V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5M3 12.5h18"/></svg></div>
-      <h3>Business, separated</h3>
-      <p>Self-employed income and expenses run on their own math — but roll into your combined financial picture automatically.</p>
+      <h3>Business P&amp;L</h3>
+      <p>Self-employed income and expenses run on their own math, with a real profit &amp; loss statement by week, month, year, or custom range — and still roll into your combined totals.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5.5c0-1.9-2.2-3.5-5-3.5S7 3.6 7 5.5 9.2 9 12 9s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></div>
+      <h3>Savings &amp; investing</h3>
+      <p>Track savings, investing, and retirement contributions separately from spending — mark each one as an expense or a transfer, your choice.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/></svg></div>
+      <h3>Progress tracking</h3>
+      <p>Log your credit score over time and watch a monthly trend of your total debt and margin — see your progress, not just a snapshot.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></div>
       <h3>Interactive calendar</h3>
       <p>Toggle month to month and watch every bill, debt payment, and payday land exactly where it's due.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
-      <h3>Editable transfer amounts</h3>
-      <p>We calculate a recommended weekly, biweekly, or monthly transfer to cover your bills — you can override it anytime.</p>
     </div>
   </div>
 </section>
@@ -165,11 +180,13 @@
       <div class="trial-badge">Free for your first 7 days</div>
       <ul class="price-list">
         <li>Unlimited bills, debts, and income sources</li>
-        <li>Separate business income &amp; expense tracking</li>
+        <li>Business P&amp;L with income &amp; expense tracking</li>
         <li>Debt snowball tracker with payoff estimates</li>
+        <li>Savings, investing &amp; retirement tracking</li>
+        <li>Credit score &amp; financial progress tracking</li>
         <li>Interactive list and calendar views</li>
         <li>Real-time weekly &amp; monthly margins</li>
-        <li>Editable, auto-calculated transfer amounts</li>
+        <li>Bill Pay Account with editable transfer amounts</li>
       </ul>
       <a href="signup.html" class="btn btn-primary btn-block">Start free 7-day trial</a>
       <div class="hero-note">Secure checkout · Cancel anytime</div>
@@ -202,6 +219,10 @@
     <div class="faq-item">
       <button class="faq-q" type="button">What happens to my data if I cancel? <span class="chev">&#9660;</span></button>
       <div class="faq-a">Your data stays associated with your account. If you'd like it fully deleted, just email us at <a href="mailto:billpay@nextupcapitalgroup.com">billpay@nextupcapitalgroup.com</a> and we'll remove it.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" type="button">Does NextUp track more than just bills? <span class="chev">&#9660;</span></button>
+      <div class="faq-a">Yes. Beyond bills and debt, NextUp covers your full financial picture: savings, investing, and retirement contributions; a dedicated Business P&amp;L view; and a Progress tab where you can log your credit score and watch a monthly trend of your total debt and margin over time.</div>
     </div>
   </div>
 </section>

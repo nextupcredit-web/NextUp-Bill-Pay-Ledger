@@ -3,18 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard · NextUp Bill Pay Ledger</title>
+<meta name="robots" content="noindex, nofollow">
+<title>Live Demo · NextUp Bill Pay Ledger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css?v=9">
-<link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="theme-color" content="#085eb0">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="NextUp">
 </head>
 <body>
 
@@ -32,7 +28,7 @@
   </span> NextUp</div>
   <div class="mobile-topbar-actions">
     <div class="side-avatar avatar-display">?</div>
-    <button class="logout-trigger" aria-label="Log out"><span>&#8618;</span></button>
+    <button class="logout-trigger" aria-label="Exit demo"><span>&#8618;</span></button>
   </div>
 </header>
 
@@ -69,8 +65,7 @@
           <div class="user-plan-display" style="font-size:11.5px;color:rgba(255,255,255,0.6);">—</div>
         </div>
       </div>
-      <a href="#" class="side-link" id="billingTrigger"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2.2"/><path d="M2.5 9.8h19"/></svg></span> Manage billing</a>
-      <a href="#" class="side-link logout-trigger"><span class="ic">&#8618;</span> Log out</a>
+      <a href="index.html" class="side-link"><span class="ic">&#8618;</span> Exit demo</a>
     </div>
   </aside>
 
@@ -117,10 +112,16 @@
 <script src="js/auth.js?v=9"></script>
 <script src="js/calendar.js?v=9"></script>
 <script src="js/app.js?v=9"></script>
-<script src="js/pwa.js?v=9"></script>
 <script>
+  window.NEXTUP_DEMO_MODE = true;
   (async () => {
-    const user = await NextUpAuth.requireSubscription('checkout.html');
+    const res = await NextUpAuth.continueAsGuest();
+    if (!res || res.ok === false) {
+      document.getElementById('mainTitle').textContent = 'Demo unavailable';
+      document.getElementById('mainSub').textContent = 'Could not start the demo session — please try again in a moment.';
+      return;
+    }
+    const user = await NextUpAuth.currentUser();
     if (user) NextUpApp.init(user);
   })();
 </script>

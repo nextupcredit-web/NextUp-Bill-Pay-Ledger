@@ -9,6 +9,12 @@ const NextUpApp = (() => {
   let DATA = null;
   let USER = null;
   let activeTab = 'overview';
+  let openDebtIds = null;
+  let pnlPeriod = 'month';
+  let pnlCustomStart = null;
+  let pnlCustomEnd = null;
+  let incomePayOpenIds = new Set();
+  let progressCharts = { score: null, trend: null };
 
   const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const WD_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -36,6 +42,7 @@ const NextUpApp = (() => {
   function getArray(kind) {
     if (kind === 'business.income') return DATA.business.income;
     if (kind === 'business.expenses') return DATA.business.expenses;
+    if (kind === 'business.transactions') return DATA.business.transactions;
     return DATA[kind];
   }
   function findItem(kind, id) { return (getArray(kind) || []).find(x => x.id === id); }
@@ -44,6 +51,7 @@ const NextUpApp = (() => {
   async function init(user) {
     USER = user;
     DATA = await NextUpStore.ensureData(user.id, user.isOwner);
+    if (NextUpStore.captureSnapshotIfNeeded(DATA)) persist();
 
     document.querySelectorAll('.user-name-display').forEach(el => el.textContent = user.name || user.email);
     document.querySelectorAll('.user-plan-display').forEach(el => el.textContent = planLabel(user));
@@ -73,25 +81,11 @@ const NextUpApp = (() => {
 
     const billingBtn = document.getElementById('billingTrigger');
     if (billingBtn) {
-      if (user.isOwner || user.plan === 'demo') {
-        billingBtn.style.display = 'none';
-      } else {
-        billingBtn.addEventListener('click', async (e) => {
-          e.preventDefault();
-          const original = billingBtn.innerHTML;
-          billingBtn.innerHTML = '<span class="ic">' + ICON_CARD + '</span> Loading…';
-          try {
-            const { data, error } = await supabaseClient.functions.invoke('create-billing-portal-session', {
-              body: { returnUrl: window.location.href }
-            });
-            if (error || !data || !data.url) throw new Error((data && data.error) || (error && error.message) || 'Could not open billing portal.');
-            window.location.href = data.url;
-          } catch (err) {
-            billingBtn.innerHTML = original;
-            toast(err.message);
-          }
-        });
-      }
+      billingBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchTab('settings');
+        closeSidebar();
+      });
     }
 
     bindGlobalDelegation();
@@ -100,6 +94,107 @@ const NextUpApp = (() => {
     document.getElementById('dayModalOverlay').addEventListener('click', (e) => { if (e.target.id === 'dayModalOverlay') closeDayModal(); });
 
     switchTab('overview');
+
+    if (window.NEXTUP_DEMO_MODE) initDemoMode();
+  }
+
+  // ================================================================
+  // DEMO MODE: banner + guided tour
+  // ================================================================
+  const TOUR_STEPS = [
+    { tab: 'overview', text: 'This is your whole financial picture in one place — income, bills, debt, and margin, updated live as you type.' },
+    { tab: 'income', text: 'Log every paycheck (W-2 or self-employed). Hourly, salary, or YTD-average entry all auto-calculate an estimated net pay.' },
+    { tab: 'bills', text: 'Every recurring bill lives here — add one, set its schedule, and totals update instantly.' },
+    { tab: 'debts', text: 'Your debt snowball, smallest balance first. Tap a card to expand it and see payoff estimates and progress.' },
+    { tab: 'business', text: 'Keep a side business or freelance income totally separate, with its own profit & loss and PDF export.' },
+    { tab: 'savings', text: 'Track savings, investing, and retirement contributions — mark each as a real expense or just a transfer.' },
+    { tab: 'calendar', text: 'Every bill, debt payment, and payday lands on the calendar so you can see what\'s due and when.' },
+    { tab: 'progress', text: 'Log your credit score from all three bureaus and watch your financial trends over time.' },
+    { tab: 'all', text: 'One combined, searchable list of absolutely everything in your ledger.' },
+    { tab: 'settings', text: 'Account and billing settings live here.' },
+    { tab: 'feedback', text: 'Loved something, hated something, found a bug? Tell us right here — it comes straight to us.' }
+  ];
+  let tourIndex = 0;
+
+  function initDemoMode() {
+    const banner = document.createElement('div');
+    banner.className = 'demo-banner';
+    banner.innerHTML = `
+      <span class="tag">Demo</span>
+      <span>You're exploring a live sandbox — poke around, nothing here is real and nothing you do affects anyone else.</span>
+      <button class="btn btn-secondary btn-sm" id="demoTourBtn">Take the tour</button>
+      <a class="btn btn-primary btn-sm" href="signup.html">Get started free &rarr;</a>
+    `;
+    document.body.insertBefore(banner, document.body.firstChild);
+    document.getElementById('demoTourBtn').addEventListener('click', () => startTour());
+
+    if (!sessionStorage.getItem('nextupDemoTourDone')) {
+      setTimeout(() => startTour(), 500);
+    }
+  }
+
+  function startTour() {
+    tourIndex = 0;
+    document.body.classList.add('tour-active');
+    const sidebarEl = document.querySelector('.sidebar');
+    if (sidebarEl) sidebarEl.classList.add('open');
+    showTourStep();
+  }
+
+  function endTour() {
+    document.body.classList.remove('tour-active');
+    document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+    const tip = document.getElementById('tourTooltip');
+    if (tip) tip.remove();
+    const sidebarEl = document.querySelector('.sidebar');
+    if (sidebarEl && window.innerWidth <= 640) closeSidebar();
+    sessionStorage.setItem('nextupDemoTourDone', '1');
+  }
+
+  function showTourStep() {
+    const step = TOUR_STEPS[tourIndex];
+    if (!step) { endTour(); return; }
+    switchTab(step.tab);
+    document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+    const link = document.querySelector(`.sidebar .side-link[data-tab="${step.tab}"]`);
+    if (link) link.classList.add('tour-highlight');
+    renderTourTooltip(link, step);
+  }
+
+  function renderTourTooltip(anchorEl, step) {
+    let tip = document.getElementById('tourTooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'tourTooltip';
+      tip.className = 'tour-tooltip';
+      document.body.appendChild(tip);
+    }
+    const isLast = tourIndex === TOUR_STEPS.length - 1;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let top = 90, left = 16;
+    if (anchorEl) {
+      const rect = anchorEl.getBoundingClientRect();
+      top = Math.min(rect.bottom + 10, vh - 190);
+      left = Math.min(Math.max(rect.left, 12), vw - 288);
+      if (top < 10) top = 10;
+    }
+    tip.style.top = top + 'px';
+    tip.style.left = left + 'px';
+    tip.innerHTML = `
+      <div class="tour-step-count">Step ${tourIndex + 1} of ${TOUR_STEPS.length}</div>
+      <div class="tour-text">${escapeHtml(step.text)}</div>
+      <div class="tour-actions">
+        <button class="btn btn-ghost btn-sm" id="tourSkip">Skip tour</button>
+        <div style="display:flex;gap:8px;">
+          ${tourIndex > 0 ? '<button class="btn btn-secondary btn-sm" id="tourBack">Back</button>' : ''}
+          <button class="btn btn-primary btn-sm" id="tourNext">${isLast ? 'Finish' : 'Next'}</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('tourSkip').addEventListener('click', endTour);
+    document.getElementById('tourNext').addEventListener('click', () => { tourIndex++; showTourStep(); });
+    const back = document.getElementById('tourBack');
+    if (back) back.addEventListener('click', () => { tourIndex--; showTourStep(); });
   }
 
   function closeDayModal() { document.getElementById('dayModalOverlay').classList.remove('show'); }
@@ -123,8 +218,12 @@ const NextUpApp = (() => {
       bills: ['Bills', 'Fixed costs and recurring personal bills.'],
       debts: ['Debt Snowball', 'Smallest to largest — track payoff as you pay it down.'],
       business: ['Business', 'NextUp Enterprise income and expenses, kept separate.'],
+      savings: ['Savings', 'Where your money goes after it\'s earned — savings, investing, and retirement.'],
       calendar: ['Calendar', 'Every bill, debt, and payday on the dates they land.'],
-      all: ['All Items', 'One list of everything across your whole ledger.']
+      progress: ['Progress', 'Credit score and financial trends, tracked over time.'],
+      all: ['All Items', 'One list of everything across your whole ledger.'],
+      settings: ['Settings', 'Your account, billing, and app preferences.'],
+      feedback: ['Feedback', 'Tell us what you think — this goes straight to the team.']
     };
     const [h, sub] = titles[tab] || ['', ''];
     document.getElementById('mainTitle').textContent = h;
@@ -135,8 +234,12 @@ const NextUpApp = (() => {
     else if (tab === 'bills') renderBills();
     else if (tab === 'debts') renderDebts();
     else if (tab === 'business') renderBusiness();
+    else if (tab === 'savings') renderSavings();
     else if (tab === 'calendar') NextUpCalendar.refresh();
+    else if (tab === 'progress') renderProgress();
     else if (tab === 'all') renderAllItems();
+    else if (tab === 'settings') renderSettings();
+    else if (tab === 'feedback') renderFeedback();
   }
 
   function toast(msg) {
@@ -203,12 +306,20 @@ const NextUpApp = (() => {
         <div class="stat-card"><div class="lbl">Total Monthly Expenses</div><div class="val">${fmt(s.totalExpensesMonthly)}</div><div class="note">Bills + debt payments + business</div></div>
         <div class="stat-card ${s.monthlyMargin >= 0 ? 'positive' : 'negative'}"><div class="lbl">Monthly Margin</div><div class="val">${fmt(s.monthlyMargin)}</div><div class="note">What's left over each month</div></div>
         <div class="stat-card ${s.weeklyMargin >= 0 ? 'positive' : 'negative'}"><div class="lbl">Weekly Margin</div><div class="val">${fmt(s.weeklyMargin)}</div><div class="note">What's left over each week</div></div>
+        <div class="stat-card">
+          <div class="lbl">Bill Pay Account transfer</div>
+          <div class="val" id="ovBillPayStat">${fmt(useAmount != null ? useAmount : (freq==='weekly'?s.recommendedWeeklyTransfer:freq==='biweekly'?s.recommendedBiweeklyTransfer:s.recommendedMonthlyTransfer))}</div>
+          <div class="note" id="ovBillPayStatFreq">Move this ${freq} into your Bill Pay Account</div>
+        </div>
       </div>
 
       <div class="panel-grid">
         <div>
           <div class="card">
-            <div class="card-head"><h3>Recommended Bills Transfer</h3><span class="sub">Auto-calculated — override it anytime</span></div>
+            <div class="card-head"><h3>Bill Pay Account</h3><span class="sub">Auto-calculated — override it anytime</span></div>
+            <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 12px;">
+              Set up autopay from your main account into a separate account used only to pay bills. This is what to move, and how often.
+            </p>
             <div class="highlight-box">
               <div class="lbl">Recommended weekly transfer</div>
               <div class="big" id="ovRecWeekly">${fmt(s.recommendedWeeklyTransfer)}</div>
@@ -228,7 +339,7 @@ const NextUpApp = (() => {
               </div>
             </div>
             <div class="field" style="margin-top:12px;">
-              <label>Frequency for your transfer</label>
+              <label>Frequency for your Bill Pay Account transfer</label>
               <div class="freq-toggle">
                 <button data-freq="weekly" class="${freq==='weekly'?'active':''}">Weekly</button>
                 <button data-freq="biweekly" class="${freq==='biweekly'?'active':''}">Biweekly</button>
@@ -257,13 +368,13 @@ const NextUpApp = (() => {
           </div>
 
           <div class="card">
-            <div class="card-head"><h3>Your data</h3><span class="sub">Stored locally in this browser</span></div>
+            <div class="card-head"><h3>Your data</h3><span class="sub">Synced securely to your account</span></div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-secondary btn-sm" id="btnExport">Export JSON</button>
               <button class="btn btn-secondary btn-sm" id="btnImport">Import JSON</button>
               <input type="file" id="fileImport" accept="application/json" style="display:none;">
               <button class="btn btn-secondary btn-sm" id="btnResetSeed">Reset to sample data</button>
-              <button class="btn btn-danger btn-sm" id="btnClearAll">Clear all data</button>
+              <button class="btn btn-danger btn-sm" id="btnClearAll">${USER.plan === 'demo' ? 'Reset demo' : 'Clear all data'}</button>
             </div>
           </div>
         </div>
@@ -312,6 +423,14 @@ const NextUpApp = (() => {
       switchTab('overview'); toast('Reset to sample data');
     });
     document.getElementById('btnClearAll').addEventListener('click', async () => {
+      if (USER.plan === 'demo') {
+        // Demo/presentation accounts reseed to a clean sample ledger instead of
+        // going blank, so this account always looks presentation-ready.
+        if (!confirm('Reset this demo account back to a clean sample ledger?')) return;
+        DATA = await NextUpStore.resetToSeed(USER.id, false);
+        switchTab('overview'); toast('Demo reset');
+        return;
+      }
       if (!confirm('Delete everything and start from a blank ledger?')) return;
       DATA = await NextUpStore.wipe(USER.id);
       switchTab('overview'); toast('Cleared');
@@ -327,6 +446,10 @@ const NextUpApp = (() => {
     const freq = DATA.settings.customTransferFrequency || 'weekly';
     const val = useAmount != null ? useAmount : (freq === 'weekly' ? s.recommendedWeeklyTransfer : freq === 'biweekly' ? s.recommendedBiweeklyTransfer : s.recommendedMonthlyTransfer);
     document.getElementById('ovYourTransfer').textContent = `${fmt(val)} / ${freq}`;
+    const billPayStat = document.getElementById('ovBillPayStat');
+    const billPayStatFreq = document.getElementById('ovBillPayStatFreq');
+    if (billPayStat) billPayStat.textContent = fmt(val);
+    if (billPayStatFreq) billPayStatFreq.textContent = `Move this ${freq} into your Bill Pay Account`;
   }
 
   function renderUpcoming() {
@@ -439,17 +562,56 @@ const NextUpApp = (() => {
   }
 
   function incomeRow(item) {
-    return `<tr data-row-id="${item.id}">
+    const isW2 = item.type === 'w2';
+    const computed = isW2 && item.payStructure && item.payStructure !== 'none';
+    const open = incomePayOpenIds.has(item.id);
+    const row = `<tr data-row-id="${item.id}">
       <td><input class="cell-input" data-kind="income" data-id="${item.id}" data-field="name" value="${escapeHtml(item.name)}"></td>
       <td><select class="cell-input" data-kind="income" data-id="${item.id}" data-field="type" data-refresh="tab">
         <option value="w2" ${item.type==='w2'?'selected':''}>W2</option>
         <option value="self-employed" ${item.type==='self-employed'?'selected':''}>Self-employed</option>
         <option value="other" ${item.type==='other'?'selected':''}>Other</option>
       </select></td>
-      <td class="amt-cell"><input class="cell-input" type="number" step="0.01" data-kind="income" data-id="${item.id}" data-field="amount" data-parse="number" data-live="income" value="${item.amount}"></td>
+      <td class="amt-cell">
+        <input class="cell-input" type="number" step="0.01" data-kind="income" data-id="${item.id}" data-field="amount" data-parse="number" data-live="income" value="${Number(item.amount).toFixed(2)}" ${computed ? 'readonly title="Computed from pay structure below — use Edit pay setup to change"' : ''}>
+        ${isW2 ? `<button type="button" class="link-btn income-pay-toggle" data-id="${item.id}" style="display:block;font-size:11px;margin-top:3px;background:none;border:none;color:var(--chase-blue);cursor:pointer;padding:0;">${open ? 'Hide pay setup ▴' : (computed ? 'Edit pay setup ▾' : 'Set up pay ▾')}</button>` : ''}
+      </td>
       <td>${scheduleFieldsHTML('income', item.id, item, [{v:'weekly',l:'Weekly'},{v:'biweekly',l:'Biweekly'},{v:'monthly',l:'Monthly'}])}</td>
       <td><input class="cell-input" data-kind="income" data-id="${item.id}" data-field="notes" value="${escapeHtml(item.notes||'')}" placeholder="—"></td>
       <td class="row-actions"><button class="icon-btn" data-delete="income" data-id="${item.id}">✕</button></td>
+    </tr>`;
+    return row + (isW2 && open ? incomePayPanelRow(item) : '');
+  }
+
+  function incomePayPanelRow(item) {
+    const ps = item.payStructure || 'none';
+    return `<tr class="income-pay-panel">
+      <td colspan="6" style="background:var(--bg-soft, #f7f9fc);">
+        <div class="debt-meta-grid" style="margin-top:10px;margin-bottom:6px;">
+          <div class="field"><label>Pay structure</label>
+            <select class="cell-input" data-kind="income" data-id="${item.id}" data-field="payStructure" data-refresh="tab">
+              <option value="none" ${ps==='none'?'selected':''}>Manual amount</option>
+              <option value="salary" ${ps==='salary'?'selected':''}>Annual salary</option>
+              <option value="hourly" ${ps==='hourly'?'selected':''}>Hourly</option>
+            </select>
+          </div>
+          ${ps === 'salary' ? `<div class="field"><label>Annual salary (gross)</label><input class="cell-input" type="number" step="0.01" data-kind="income" data-id="${item.id}" data-field="annualSalary" data-parse="number" data-live="incomepay" value="${item.annualSalary||0}"></div>` : ''}
+          ${ps === 'hourly' ? `<div class="field"><label>Hourly rate</label><input class="cell-input" type="number" step="0.01" data-kind="income" data-id="${item.id}" data-field="hourlyRate" data-parse="number" data-live="incomepay" value="${item.hourlyRate||0}"></div>
+          <div class="field"><label>Hours / week</label><input class="cell-input" type="number" step="0.5" data-kind="income" data-id="${item.id}" data-field="hoursPerWeek" data-parse="number" data-live="incomepay" value="${item.hoursPerWeek||0}"></div>` : ''}
+          ${ps !== 'none' ? `<div class="field"><label>Est. tax/insurance/retirement withheld (%)</label><input class="cell-input" type="number" step="0.1" min="0" max="100" data-kind="income" data-id="${item.id}" data-field="taxRatePercent" data-parse="number" data-live="incomepay" value="${item.taxRatePercent||0}"></div>` : ''}
+        </div>
+        ${ps !== 'none' ? `
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-muted);font-weight:600;margin-top:2px;">
+          <input type="checkbox" data-kind="income" data-id="${item.id}" data-field="useYtdAverage" data-parse="bool" data-refresh="tab" ${item.useYtdAverage?'checked':''}>
+          Use YTD average instead of the fields above
+        </label>
+        ${item.useYtdAverage ? `<div class="debt-meta-grid" style="margin-top:10px;">
+          <div class="field"><label>YTD gross earned</label><input class="cell-input" type="number" step="0.01" data-kind="income" data-id="${item.id}" data-field="ytdGross" data-parse="number" data-live="incomepay" value="${item.ytdGross||0}"></div>
+          <div class="field"><label>YTD start date</label><input class="cell-input" type="date" data-kind="income" data-id="${item.id}" data-field="ytdStartDate" data-live="incomepay" value="${item.ytdStartDate||''}"></div>
+        </div>` : ''}
+        <div class="incomepay-net" data-id="${item.id}" style="margin-top:10px;font-size:12.5px;color:var(--text-faint);">Estimated net pay: <strong style="color:var(--income-green);">${NextUpStore.fmtMoney(item.amount)}</strong> / ${item.frequency} (this is an estimate — check your actual pay stub for exact withholding)</div>
+        ` : `<div style="margin-top:8px;font-size:12px;color:var(--text-faint);">Manual amount mode — edit the Amount field directly in the row above.</div>`}
+      </td>
     </tr>`;
   }
 
@@ -539,6 +701,10 @@ const NextUpApp = (() => {
     const withBalance = DATA.debts.filter(d => !d.noBalance);
     const active = withBalance.filter(d => Number(d.balance) > 0).sort((a,b) => a.balance - b.balance);
     const paused = DATA.debts.filter(d => d.noBalance || Number(d.balance) <= 0);
+    if (openDebtIds === null) {
+      openDebtIds = new Set();
+      if (active[0]) openDebtIds.add(active[0].id);
+    }
     const totalBalance = active.reduce((s,d) => s + Number(d.balance), 0);
     const activeMonthly = DATA.debts.filter(d => d.status !== 'paused').reduce((s,d) => s + NextUpStore.debtMonthlyPayment(d), 0);
     const sim = NextUpStore.simulateSnowball(DATA.debts, DATA.settings.snowballExtra);
@@ -601,6 +767,39 @@ const NextUpApp = (() => {
       });
       persist(); renderDebts(); toast('Debt added');
     });
+
+    applyDebtCardOpenStates(root);
+    root.querySelectorAll('.debt-card-header[data-debt-toggle]').forEach(header => {
+      header.addEventListener('click', (e) => {
+        if (e.target.closest('input, button, select, a')) return;
+        toggleDebtCard(header.dataset.debtToggle);
+      });
+    });
+  }
+
+  function applyDebtCardOpenStates(root) {
+    root.querySelectorAll('.debt-card').forEach(card => {
+      if (openDebtIds.has(card.dataset.debtId)) {
+        card.classList.add('open');
+        const body = card.querySelector('.debt-card-body');
+        if (body) body.style.maxHeight = body.scrollHeight + 'px';
+      }
+    });
+  }
+
+  function toggleDebtCard(id) {
+    const card = document.querySelector(`.debt-card[data-debt-id="${id}"]`);
+    if (!card) return;
+    const body = card.querySelector('.debt-card-body');
+    if (card.classList.contains('open')) {
+      card.classList.remove('open');
+      if (body) body.style.maxHeight = '0px';
+      openDebtIds.delete(id);
+    } else {
+      card.classList.add('open');
+      if (body) body.style.maxHeight = body.scrollHeight + 'px';
+      openDebtIds.add(id);
+    }
   }
 
   function debtStatGridHtml(totalBalance, activeMonthly, count, sim) {
@@ -627,36 +826,43 @@ const NextUpApp = (() => {
     const monthlyPay = NextUpStore.debtMonthlyPayment(d);
     return `
       <div class="debt-card" data-debt-id="${d.id}">
-        <div class="debt-card-top">
-          <div class="debt-name-row">
-            ${rank ? `<div class="debt-rank">${rank}</div>` : ''}
-            <div>
-              <input class="cell-input" style="font-size:15.5px;font-weight:700;padding:2px 4px;" data-kind="debts" data-id="${d.id}" data-field="name" value="${escapeHtml(d.name)}">
-              <div><span class="pill pill-debt">${catLabel(d.debtCategory)}</span> ${d.pastDue ? `<span class="pill" style="background:#fdeaea;color:#b42318;">Past due ${fmt(d.pastDue)}</span>` : ''}</div>
+        <div class="debt-card-header" data-debt-toggle="${d.id}">
+          <div class="debt-card-top">
+            <div class="debt-name-row">
+              ${rank ? `<div class="debt-rank">${rank}</div>` : ''}
+              <div>
+                <input class="cell-input" style="font-size:15.5px;font-weight:700;padding:2px 4px;" data-kind="debts" data-id="${d.id}" data-field="name" value="${escapeHtml(d.name)}">
+                <div><span class="pill pill-debt">${catLabel(d.debtCategory)}</span> ${d.pastDue ? `<span class="pill" style="background:#fdeaea;color:#b42318;">Past due ${fmt(d.pastDue)}</span>` : ''}</div>
+              </div>
+            </div>
+            <div style="text-align:right;display:flex;align-items:center;gap:10px;">
+              <div>
+                ${d.noBalance ? `<div style="font-size:13px;color:var(--text-faint);">No fixed balance</div>` :
+                  `<div class="debt-balance" id="balDisplay_${d.id}">${fmt(d.balance)}</div>`}
+                <div class="row-actions" style="margin-top:4px;justify-content:flex-end;"><button class="icon-btn" data-delete="debts" data-id="${d.id}">✕</button></div>
+              </div>
+              <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></span>
             </div>
           </div>
-          <div style="text-align:right;">
-            ${d.noBalance ? `<div style="font-size:13px;color:var(--text-faint);">No fixed balance</div>` :
-              `<div class="debt-balance" id="balDisplay_${d.id}">${fmt(d.balance)}</div>`}
-            <div class="row-actions" style="margin-top:4px;"><button class="icon-btn" data-delete="debts" data-id="${d.id}">✕</button></div>
+        </div>
+
+        <div class="debt-card-body">
+          ${!d.noBalance ? `
+          <div class="progress-track"><div class="progress-fill" id="progressFill_${d.id}" style="width:${progress.toFixed(1)}%"></div></div>
+          <div style="font-size:11.5px;color:var(--text-faint);margin-top:4px;" id="progressText_${d.id}">${progress.toFixed(1)}% paid off since added</div>
+          ` : ''}
+
+          <div class="debt-meta-grid">
+            ${d.noBalance ? '' : `<div class="field"><label>Balance</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="balance" data-parse="number" data-live="debt" value="${d.balance}"></div>`}
+            <div class="field"><label>Interest Rate (APR %)</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="interestRate" data-parse="number" data-live="debt" value="${d.interestRate || 0}"></div>
+            <div class="field"><label>Min Payment / mo</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="minPayment" data-parse="number" data-live="debt" value="${d.minPayment || 0}"></div>
+            <div class="field"><label>Extra Payment / mo</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="extraPayment" data-parse="number" data-live="debt" value="${d.extraPayment || 0}"></div>
           </div>
-        </div>
 
-        ${!d.noBalance ? `
-        <div class="progress-track"><div class="progress-fill" id="progressFill_${d.id}" style="width:${progress.toFixed(1)}%"></div></div>
-        <div style="font-size:11.5px;color:var(--text-faint);margin-top:4px;" id="progressText_${d.id}">${progress.toFixed(1)}% paid off since added</div>
-        ` : ''}
-
-        <div class="debt-meta-grid">
-          ${d.noBalance ? '' : `<div class="field"><label>Balance</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="balance" data-parse="number" data-live="debt" value="${d.balance}"></div>`}
-          <div class="field"><label>Interest Rate (APR %)</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="interestRate" data-parse="number" data-live="debt" value="${d.interestRate || 0}"></div>
-          <div class="field"><label>Min Payment / mo</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="minPayment" data-parse="number" data-live="debt" value="${d.minPayment || 0}"></div>
-          <div class="field"><label>Extra Payment / mo</label><input class="cell-input" type="number" step="0.01" data-kind="debts" data-id="${d.id}" data-field="extraPayment" data-parse="number" data-live="debt" value="${d.extraPayment || 0}"></div>
-        </div>
-
-        <div class="debt-foot">
-          <span>Status: ${statusOptions('debts', d.id, d.status)}</span>
-          <span>Paying <strong id="monthlyPay_${d.id}">${fmt(monthlyPay)}</strong>/mo → payoff est. <strong id="payoffText_${d.id}">${d.noBalance ? (d.targetDate ? new Date(d.targetDate).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '—') : (payoff.date ? payoff.date.toLocaleDateString('en-US',{month:'short',year:'numeric'}) : (payoff.months === Infinity ? 'never at this rate' : '—'))}</strong></span>
+          <div class="debt-foot">
+            <span>Status: ${statusOptions('debts', d.id, d.status)}</span>
+            <span>Paying <strong id="monthlyPay_${d.id}">${fmt(monthlyPay)}</strong>/mo → payoff est. <strong id="payoffText_${d.id}">${d.noBalance ? (d.targetDate ? new Date(d.targetDate).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '—') : (payoff.date ? payoff.date.toLocaleDateString('en-US',{month:'short',year:'numeric'}) : (payoff.months === Infinity ? 'never at this rate' : '—'))}</strong></span>
+          </div>
         </div>
       </div>
     `;
@@ -681,6 +887,11 @@ const NextUpApp = (() => {
     if (mpEl) mpEl.textContent = fmt(monthlyPay);
     if (poEl) poEl.textContent = d.noBalance ? (d.targetDate ? new Date(d.targetDate).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '—') : (payoff.date ? payoff.date.toLocaleDateString('en-US',{month:'short',year:'numeric'}) : (payoff.months === Infinity ? 'never at this rate' : '—'));
     updateDebtStatGrid();
+    const card = document.querySelector(`.debt-card[data-debt-id="${id}"]`);
+    if (card && card.classList.contains('open')) {
+      const body = card.querySelector('.debt-card-body');
+      if (body) body.style.maxHeight = body.scrollHeight + 'px';
+    }
   }
 
   // ================================================================
@@ -692,8 +903,56 @@ const NextUpApp = (() => {
     const expM = DATA.business.expenses.reduce((s,e) => s + NextUpStore.toMonthly(e.amount, e.frequency), 0);
     const net = incomeM - expM;
     const weeklyTransfer = net < 0 ? (-net) / NextUpStore.WEEK_PER_MONTH : 0;
+    const pnl = NextUpStore.computeBusinessPnL(DATA, pnlPeriod, pnlCustomStart, pnlCustomEnd);
+    const periodLabel = { week: 'This week', month: 'This month', year: 'This year', custom: 'Custom range' }[pnlPeriod];
 
     root.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <h3>Profit &amp; Loss</h3>
+          <span class="sub">${periodLabel} · ${pnl.start.toLocaleDateString('en-US',{month:'short',day:'numeric'})} &ndash; ${pnl.end.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+          <button class="btn btn-secondary btn-sm" id="btnExportPnlPdf" style="margin-left:auto;">Export PDF</button>
+        </div>
+        <div class="freq-toggle" id="pnlPeriodToggle">
+          <button data-period="week" class="${pnlPeriod==='week'?'active':''}">Week</button>
+          <button data-period="month" class="${pnlPeriod==='month'?'active':''}">Month</button>
+          <button data-period="year" class="${pnlPeriod==='year'?'active':''}">Year</button>
+          <button data-period="custom" class="${pnlPeriod==='custom'?'active':''}">Custom</button>
+        </div>
+        ${pnlPeriod === 'custom' ? `
+          <div class="inline-form" style="margin-top:12px;">
+            <div class="field"><label>Start</label><input class="field-input" type="date" id="pnlCustomStart" value="${pnlCustomStart || ''}"></div>
+            <div class="field"><label>End</label><input class="field-input" type="date" id="pnlCustomEnd" value="${pnlCustomEnd || ''}"></div>
+          </div>
+        ` : ''}
+        <div class="stat-grid" style="margin-top:16px;">
+          <div class="stat-card positive"><div class="lbl">Income (period)</div><div class="val" id="pnlIncome">${fmt(pnl.totalIncome)}</div></div>
+          <div class="stat-card"><div class="lbl">Expenses (period)</div><div class="val" id="pnlExpense">${fmt(pnl.totalExpense)}</div></div>
+          <div class="stat-card ${pnl.net>=0?'positive':'negative'}"><div class="lbl">Net Profit</div><div class="val" id="pnlNet">${fmt(pnl.net)}</div></div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="sub" style="margin-bottom:8px;">Expense breakdown by category</div>
+          <div class="table-wrap" id="pnlCategoryWrap">${categoryBreakdownHtml(pnl.categoryTotals)}</div>
+        </div>
+        <div class="inline-form" id="addTxnForm" style="margin-top:16px;border-top:1px dashed var(--border);padding-top:14px;">
+          <div class="field"><label>Type</label><select class="field-input" id="newTxnType"><option value="expense">Expense</option><option value="income">Income</option></select></div>
+          <div class="field"><label>Date</label><input class="field-input" type="date" id="newTxnDate" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="field grow-2"><label>Name</label><input class="field-input" id="newTxnName" placeholder="e.g. Gas for client visit"></div>
+          <div class="field"><label>Amount</label><input class="field-input" type="number" step="0.01" id="newTxnAmount" placeholder="0.00"></div>
+          <div class="field" id="newTxnCategoryWrap"><label>Category</label>
+            <select class="field-input" id="newTxnCategory">${NextUpStore.EXPENSE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+          </div>
+          <div class="field" id="newTxnCategoryOtherWrap" style="display:none;"><label>Custom category</label><input class="field-input" id="newTxnCategoryOther" placeholder="Type a category"></div>
+          <button class="btn btn-primary" id="addTxnBtn">+ Log transaction</button>
+        </div>
+        ${pnl.txns.length ? `
+          <div class="table-wrap" style="margin-top:14px;"><table class="table table-compact">
+            <thead><tr><th>Date</th><th>Name</th><th>Category</th><th>Amount</th><th></th></tr></thead>
+            <tbody>${pnl.txns.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => txnRow(t)).join('')}</tbody>
+          </table></div>
+        ` : `<div class="empty-state" style="padding:14px 0;">No logged transactions in this period.</div>`}
+      </div>
+
       <div class="stat-grid">
         <div class="stat-card positive"><div class="lbl">Business Income</div><div class="val" id="bizIncomeTotal">${fmt(incomeM)}/mo</div></div>
         <div class="stat-card"><div class="lbl">Business Expenses</div><div class="val" id="bizExpenseTotal">${fmt(expM)}/mo</div></div>
@@ -702,7 +961,7 @@ const NextUpApp = (() => {
       </div>
 
       <div class="card">
-        <div class="card-head"><h3>Business Income</h3><span class="sub">NextUp Enterprise clients & transfers in</span></div>
+        <div class="card-head"><h3>Fixed Recurring Income</h3><span class="sub">NextUp Enterprise clients &amp; transfers in — always editable</span></div>
         <div class="table-wrap"><table class="table">
           <thead><tr><th>Name</th><th>Amount</th><th>Schedule</th><th>Notes</th><th></th></tr></thead>
           <tbody>${DATA.business.income.map(i => bizIncomeRow(i)).join('')}</tbody>
@@ -716,7 +975,7 @@ const NextUpApp = (() => {
       </div>
 
       <div class="card">
-        <div class="card-head"><h3>Business Expenses</h3><span class="sub">Software, office, tools</span></div>
+        <div class="card-head"><h3>Fixed Recurring Expenses</h3><span class="sub">Software, office, tools — always editable</span></div>
         <div class="table-wrap"><table class="table">
           <thead><tr><th>Name</th><th>Amount</th><th>Schedule</th><th>Status</th><th></th></tr></thead>
           <tbody>${DATA.business.expenses.map(e => bizExpenseRow(e)).join('')}</tbody>
@@ -730,6 +989,38 @@ const NextUpApp = (() => {
       </div>
     `;
 
+    root.querySelectorAll('#pnlPeriodToggle button').forEach(b => {
+      b.addEventListener('click', () => { pnlPeriod = b.dataset.period; renderBusiness(); });
+    });
+    const pnlStartEl = document.getElementById('pnlCustomStart');
+    const pnlEndEl = document.getElementById('pnlCustomEnd');
+    if (pnlStartEl) pnlStartEl.addEventListener('change', (e) => { pnlCustomStart = e.target.value; renderBusiness(); });
+    if (pnlEndEl) pnlEndEl.addEventListener('change', (e) => { pnlCustomEnd = e.target.value; renderBusiness(); });
+
+    const newTxnType = document.getElementById('newTxnType');
+    const newTxnCategory = document.getElementById('newTxnCategory');
+    newTxnType.addEventListener('change', (e) => {
+      document.getElementById('newTxnCategoryWrap').style.display = e.target.value === 'expense' ? '' : 'none';
+      document.getElementById('newTxnCategoryOtherWrap').style.display = 'none';
+    });
+    newTxnCategory.addEventListener('change', (e) => {
+      document.getElementById('newTxnCategoryOtherWrap').style.display = e.target.value === 'Other' ? '' : 'none';
+    });
+    document.getElementById('addTxnBtn').addEventListener('click', () => {
+      const name = document.getElementById('newTxnName').value.trim();
+      if (!name) { toast('Give it a name first'); return; }
+      const type = newTxnType.value;
+      const amount = parseFloat(document.getElementById('newTxnAmount').value) || 0;
+      const date = document.getElementById('newTxnDate').value || new Date().toISOString().slice(0,10);
+      let category = null, categoryOther = '';
+      if (type === 'expense') {
+        category = newTxnCategory.value;
+        if (category === 'Other') categoryOther = document.getElementById('newTxnCategoryOther').value.trim();
+      }
+      DATA.business.transactions.push({ id: NextUpStore.uid('txn'), type, name, amount, date, category, categoryOther, notes: '' });
+      persist(); renderBusiness(); toast('Transaction logged');
+    });
+
     document.getElementById('addBizIncBtn').addEventListener('click', () => {
       const name = document.getElementById('newBizIncName').value.trim();
       if (!name) { toast('Give it a name first'); return; }
@@ -742,6 +1033,112 @@ const NextUpApp = (() => {
       DATA.business.expenses.push({ id: NextUpStore.uid('bizexp'), name, amount: parseFloat(document.getElementById('newBizExpAmount').value) || 0, frequency: document.getElementById('newBizExpFreq').value, weekday: 4, dueDay: 1, status: 'active', notes: '' });
       persist(); renderBusiness(); toast('Business expense added');
     });
+
+    document.getElementById('btnExportPnlPdf').addEventListener('click', () => exportPnlPdf(pnl, periodLabel));
+  }
+
+  function exportPnlPdf(pnl, periodLabel) {
+    if (typeof window.jspdf === 'undefined') { toast('PDF library failed to load'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const marginX = 54;
+    let y = 60;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+    doc.text('NextUp — Business Profit & Loss Statement', marginX, y);
+    y += 22;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(90);
+    doc.text(`Prepared for: ${USER.name || USER.email}`, marginX, y); y += 15;
+    doc.text(`Period: ${periodLabel} (${pnl.start.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} – ${pnl.end.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})})`, marginX, y); y += 15;
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`, marginX, y); y += 26;
+    doc.setTextColor(0);
+
+    doc.setDrawColor(220); doc.line(marginX, y, 558, y); y += 22;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Summary', marginX, y); y += 18;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    const rows = [
+      ['Recurring income', NextUpStore.fmtMoney(pnl.recurringIncome)],
+      ['Logged income transactions', NextUpStore.fmtMoney(pnl.txnIncome)],
+      ['Total income', NextUpStore.fmtMoney(pnl.totalIncome)],
+      ['Recurring expenses', NextUpStore.fmtMoney(pnl.recurringExpense)],
+      ['Logged expense transactions', NextUpStore.fmtMoney(pnl.txnExpense)],
+      ['Total expenses', NextUpStore.fmtMoney(pnl.totalExpense)],
+    ];
+    rows.forEach(([label, val]) => {
+      doc.text(label, marginX, y);
+      doc.text(val, 558, y, { align: 'right' });
+      y += 16;
+    });
+    y += 6;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
+    doc.text('Net profit', marginX, y);
+    doc.text(NextUpStore.fmtMoney(pnl.net), 558, y, { align: 'right' });
+    y += 30;
+
+    doc.setDrawColor(220); doc.line(marginX, y, 558, y); y += 22;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Expenses by category', marginX, y); y += 18;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    const cats = Object.keys(pnl.categoryTotals);
+    if (!cats.length) {
+      doc.setTextColor(120);
+      doc.text('No expenses in this period.', marginX, y); y += 16;
+      doc.setTextColor(0);
+    } else {
+      cats.forEach(cat => {
+        doc.text(cat, marginX, y);
+        doc.text(NextUpStore.fmtMoney(pnl.categoryTotals[cat]), 558, y, { align: 'right' });
+        y += 16;
+      });
+    }
+    y += 14;
+
+    if (pnl.txns.length) {
+      doc.setDrawColor(220); doc.line(marginX, y, 558, y); y += 22;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+      doc.text('Logged transactions', marginX, y); y += 18;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      pnl.txns.slice().sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(t => {
+        if (y > 730) { doc.addPage(); y = 60; }
+        const dateStr = new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const label = `${dateStr} — ${t.name}${t.type === 'expense' ? ' (' + (t.category || 'Other') + ')' : ''}`;
+        doc.text(label, marginX, y);
+        doc.text((t.type === 'income' ? '+' : '-') + NextUpStore.fmtMoney(t.amount), 558, y, { align: 'right' });
+        y += 14;
+      });
+    }
+
+    doc.setFontSize(9); doc.setTextColor(150);
+    doc.text('Generated by NextUp Bill Pay Ledger — for your own records. Not a substitute for tax or accounting advice.', marginX, 760);
+
+    const fileSafeLabel = periodLabel.replace(/\s+/g, '-').toLowerCase();
+    doc.save(`nextup-pnl-${fileSafeLabel}-${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  function categoryBreakdownHtml(categoryTotals) {
+    const cats = Object.keys(categoryTotals);
+    if (!cats.length) return `<div class="empty-state" style="padding:10px 0;">No expenses in this period.</div>`;
+    return `<table class="table table-compact"><tbody>
+      ${cats.map(c => `<tr><td>${escapeHtml(c)}</td><td class="amt-cell">${fmt(categoryTotals[c])}</td></tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  function txnRow(t) {
+    return `<tr data-row-id="${t.id}">
+      <td><input class="cell-input" type="date" data-kind="business.transactions" data-id="${t.id}" data-field="date" data-refresh="tab" value="${t.date || ''}"></td>
+      <td><input class="cell-input" data-kind="business.transactions" data-id="${t.id}" data-field="name" value="${escapeHtml(t.name)}"></td>
+      <td>${t.type === 'expense' ? `
+        <select class="cell-input" data-kind="business.transactions" data-id="${t.id}" data-field="category" data-refresh="tab">
+          ${NextUpStore.EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${t.category===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+        ${t.category === 'Other' ? `<input class="cell-input" style="margin-top:4px;" data-kind="business.transactions" data-id="${t.id}" data-field="categoryOther" placeholder="Custom category" value="${escapeHtml(t.categoryOther||'')}">` : ''}
+      ` : `<span class="pill pill-income">Income</span>`}</td>
+      <td class="amt-cell"><input class="cell-input" type="number" step="0.01" data-kind="business.transactions" data-id="${t.id}" data-field="amount" data-parse="number" data-live="business" value="${t.amount}"></td>
+      <td class="row-actions"><button class="icon-btn" data-delete="business.transactions" data-id="${t.id}">✕</button></td>
+    </tr>`;
   }
 
   function bizIncomeRow(item) {
@@ -773,6 +1170,92 @@ const NextUpApp = (() => {
     set('bizExpenseTotal', fmt(expM) + '/mo');
     set('bizNet', fmt(net) + '/mo');
     set('bizWeeklyTransfer', fmt(weeklyTransfer) + '/wk');
+
+    if (document.getElementById('pnlIncome')) {
+      const pnl = NextUpStore.computeBusinessPnL(DATA, pnlPeriod, pnlCustomStart, pnlCustomEnd);
+      set('pnlIncome', fmt(pnl.totalIncome));
+      set('pnlExpense', fmt(pnl.totalExpense));
+      const pnlNetEl = document.getElementById('pnlNet');
+      if (pnlNetEl) {
+        pnlNetEl.textContent = fmt(pnl.net);
+        pnlNetEl.closest('.stat-card').classList.toggle('positive', pnl.net >= 0);
+        pnlNetEl.closest('.stat-card').classList.toggle('negative', pnl.net < 0);
+      }
+      const catWrap = document.getElementById('pnlCategoryWrap');
+      if (catWrap) catWrap.innerHTML = categoryBreakdownHtml(pnl.categoryTotals);
+    }
+  }
+
+  // ================================================================
+  // SAVINGS / INVESTING / RETIREMENT
+  // ================================================================
+  function renderSavings() {
+    const root = document.getElementById('tab-savings');
+    const totals = NextUpStore.computeSavingsTotals(DATA.savings);
+    root.innerHTML = `
+      <div class="stat-grid stat-grid-3">
+        <div class="stat-card"><div class="lbl">Total Monthly Contributions</div><div class="val" id="savTotalMonthly">${fmt(totals.monthly)}/mo</div></div>
+        <div class="stat-card negative"><div class="lbl">Counted as a household expense</div><div class="val" id="savExpenseMonthly">${fmt(totals.expenseMonthly)}/mo</div></div>
+        <div class="stat-card positive"><div class="lbl">Just moving money (not an expense)</div><div class="val" id="savTransferMonthly">${fmt(totals.transferMonthly)}/mo</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Savings, Investing &amp; Retirement</h3><span class="sub">Track where money goes after it's earned</span></div>
+        <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 12px;">
+          Mark each one <strong>Expense</strong> if it should count against your household budget, or <strong>Transfer</strong> if it's already-earned money you're simply moving somewhere else (like into a savings account you still have) — transfers don't reduce your margin.
+        </p>
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>Name</th><th>Category</th><th>Counts as</th><th>Amount</th><th>Schedule</th><th>Notes</th><th></th></tr></thead>
+          <tbody>${DATA.savings.map(s => savingsRow(s)).join('')}</tbody>
+        </table></div>
+        <div class="inline-form" id="addSavingsForm">
+          <div class="field grow-2"><label>Name</label><input class="field-input" id="newSavName" placeholder="e.g. 401k, Roth IRA, Emergency fund"></div>
+          <div class="field"><label>Category</label>
+            <select class="field-input" id="newSavCategory"><option value="savings">Savings</option><option value="investing">Investing</option><option value="retirement">Retirement</option><option value="other">Other</option></select>
+          </div>
+          <div class="field"><label>Counts as</label>
+            <select class="field-input" id="newSavKind"><option value="transfer">Transfer</option><option value="expense">Expense</option></select>
+          </div>
+          <div class="field"><label>Amount</label><input class="field-input" type="number" step="0.01" id="newSavAmount" placeholder="0.00"></div>
+          <div class="field"><label>Frequency</label>
+            <select class="field-input" id="newSavFreq"><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option><option value="monthly">Monthly</option></select>
+          </div>
+          <button class="btn btn-primary" id="addSavingsBtn">+ Add</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('addSavingsBtn').addEventListener('click', () => {
+      const name = document.getElementById('newSavName').value.trim();
+      const amount = parseFloat(document.getElementById('newSavAmount').value) || 0;
+      if (!name) { toast('Give it a name first'); return; }
+      DATA.savings.push({
+        id: NextUpStore.uid('sav'), name,
+        category: document.getElementById('newSavCategory').value,
+        kind: document.getElementById('newSavKind').value,
+        amount, frequency: document.getElementById('newSavFreq').value,
+        weekday: 5, dueDay: 1, notes: ''
+      });
+      persist(); renderSavings(); toast('Added');
+    });
+  }
+
+  function savingsRow(item) {
+    return `<tr data-row-id="${item.id}">
+      <td><input class="cell-input" data-kind="savings" data-id="${item.id}" data-field="name" value="${escapeHtml(item.name)}"></td>
+      <td><select class="cell-input" data-kind="savings" data-id="${item.id}" data-field="category" data-refresh="tab">
+        <option value="savings" ${item.category==='savings'?'selected':''}>Savings</option>
+        <option value="investing" ${item.category==='investing'?'selected':''}>Investing</option>
+        <option value="retirement" ${item.category==='retirement'?'selected':''}>Retirement</option>
+        <option value="other" ${item.category==='other'?'selected':''}>Other</option>
+      </select></td>
+      <td><select class="cell-input" data-kind="savings" data-id="${item.id}" data-field="kind" data-refresh="tab">
+        <option value="transfer" ${item.kind==='transfer'?'selected':''}>Transfer</option>
+        <option value="expense" ${item.kind==='expense'?'selected':''}>Expense</option>
+      </select></td>
+      <td class="amt-cell"><input class="cell-input" type="number" step="0.01" data-kind="savings" data-id="${item.id}" data-field="amount" data-parse="number" data-live="savings" value="${item.amount}"></td>
+      <td>${scheduleFieldsHTML('savings', item.id, item, [{v:'weekly',l:'Weekly'},{v:'biweekly',l:'Biweekly'},{v:'monthly',l:'Monthly'}])}</td>
+      <td><input class="cell-input" data-kind="savings" data-id="${item.id}" data-field="notes" value="${escapeHtml(item.notes||'')}" placeholder="—"></td>
+      <td class="row-actions"><button class="icon-btn" data-delete="savings" data-id="${item.id}">✕</button></td>
+    </tr>`;
   }
 
   // ================================================================
@@ -786,13 +1269,14 @@ const NextUpApp = (() => {
     DATA.debts.forEach(d => rows.push({ name: d.name, kind: 'debt', amount: (Number(d.minPayment)||0) + (Number(d.extraPayment)||0), schedule: scheduleSummary(d), status: d.status, notes: `Balance ${d.noBalance ? '—' : fmt(d.balance)}` }));
     DATA.business.income.forEach(i => rows.push({ name: i.name, kind: 'business-income', amount: i.amount, schedule: scheduleSummary(i), status: 'active', notes: i.notes }));
     DATA.business.expenses.forEach(e => rows.push({ name: e.name, kind: 'business-expense', amount: e.amount, schedule: scheduleSummary(e), status: e.status, notes: e.notes }));
+    DATA.savings.forEach(s => rows.push({ name: s.name, kind: 'savings', amount: s.amount, schedule: scheduleSummary(s), status: 'active', notes: (s.kind === 'expense' ? 'Counts as expense' : 'Transfer') + (s.notes ? ' — ' + s.notes : '') }));
 
     root.innerHTML = `
       <div class="card">
         <div class="card-head">
           <h3>Everything, One List</h3>
           <div class="cal-filters" id="allFilters">
-            ${['all','income','bill','debt','business-income','business-expense'].map(k => `<label class="filter-chip"><input type="checkbox" data-k="${k}" ${k==='all'?'checked':''}>${k==='all'?'All':k.replace('-',' ')}</label>`).join('')}
+            ${['all','income','bill','debt','business-income','business-expense','savings'].map(k => `<label class="filter-chip"><input type="checkbox" data-k="${k}" ${k==='all'?'checked':''}>${k==='all'?'All':k.replace('-',' ')}</label>`).join('')}
           </div>
         </div>
         <div class="table-wrap"><table class="table">
@@ -817,7 +1301,7 @@ const NextUpApp = (() => {
   }
 
   function allItemRow(r) {
-    const pillClass = { income: 'pill-income', bill: 'pill-bill', debt: 'pill-debt', 'business-income': 'pill-income', 'business-expense': 'pill-business' }[r.kind];
+    const pillClass = { income: 'pill-income', bill: 'pill-bill', debt: 'pill-debt', 'business-income': 'pill-income', 'business-expense': 'pill-business', savings: 'pill-business' }[r.kind];
     const sign = (r.kind === 'income' || r.kind === 'business-income') ? '+' : '-';
     return `<tr data-kind="${r.kind}">
       <td style="font-weight:600;">${escapeHtml(r.name)}</td>
@@ -830,17 +1314,282 @@ const NextUpApp = (() => {
   }
 
   // ================================================================
+  // SETTINGS
+  // ================================================================
+  function creditScoreBand(score) {
+    if (score == null) return { label: 'Not logged yet', color: 'var(--text-faint)' };
+    if (score >= 800) return { label: 'Exceptional', color: 'var(--income-green)' };
+    if (score >= 740) return { label: 'Very good', color: 'var(--income-green)' };
+    if (score >= 670) return { label: 'Good', color: '#f2b705' };
+    if (score >= 580) return { label: 'Fair', color: 'var(--business-orange)' };
+    return { label: 'Poor', color: 'var(--debt-red)' };
+  }
+
+  const SMARTCREDIT_URL = 'https://www.smartcredit.com/join/?pid=60983';
+  const CREDIT_BUREAU_COLORS = { experian: '#34e0a1', transunion: '#3b82f6', equifax: '#f2b705' };
+
+  function renderProgress() {
+    const root = document.getElementById('tab-progress');
+    const bureaus = NextUpStore.CREDIT_BUREAUS;
+    const labels = NextUpStore.CREDIT_BUREAU_LABELS;
+    const cs = DATA.creditScore || { bureaus: {} };
+    const snaps = (DATA.snapshots || []).slice(-12);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const bureauBlocks = bureaus.map(b => {
+      const rec = cs.bureaus[b] || { current: null, history: [] };
+      const band = creditScoreBand(rec.current);
+      return `
+        <div class="meta-grid-col" style="flex:1;min-width:200px;padding:14px;border:1px solid var(--border);border-radius:12px;">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">${labels[b]}</div>
+          <div style="font-size:32px;font-weight:800;color:${band.color};line-height:1;">${rec.current != null ? rec.current : '—'}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin:4px 0 12px;">${band.label}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <input type="number" class="csNewScore" data-bureau="${b}" min="300" max="900" placeholder="e.g. 712" style="width:90px;">
+            <input type="date" class="csNewDate" data-bureau="${b}" value="${today}" style="width:130px;">
+            <button class="btn btn-secondary csLogBtn" data-bureau="${b}">Log</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    root.innerHTML = `
+      <div class="card">
+        <div class="card-head"><h3>Credit scores</h3><span class="sub">Log each bureau's score whenever you check it — see your trend over time.</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px;">
+          ${bureauBlocks}
+        </div>
+        <div style="height:180px;margin-bottom:18px;">
+          <canvas id="creditScoreChart"></canvas>
+        </div>
+        <div style="padding-top:16px;border-top:1px solid var(--border);">
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:8px;">Need to check your score? We partner with SmartCredit for monitoring &amp; reports.</div>
+          <a class="btn btn-primary" href="${SMARTCREDIT_URL}" target="_blank" rel="noopener noreferrer sponsored">Check my score with SmartCredit &rarr;</a>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="card-head"><h3>Financial trends</h3><span class="sub">Snapshotted automatically once a month.</span></div>
+        ${snaps.length ? `<div style="height:220px;"><canvas id="trendChart"></canvas></div>` : `
+          <div class="empty-state" style="padding:18px 0;">
+            <div class="ic">${ICON_CHECK}</div>
+            Your first monthly snapshot was just captured — check back next month to see a trend.
+          </div>`}
+      </div>
+    `;
+
+    root.querySelectorAll('.csLogBtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const b = btn.dataset.bureau;
+        const scoreEl = root.querySelector(`.csNewScore[data-bureau="${b}"]`);
+        const dateEl = root.querySelector(`.csNewDate[data-bureau="${b}"]`);
+        const valRaw = scoreEl.value;
+        if (valRaw === '') { toast('Enter a score first'); return; }
+        const num = parseInt(valRaw, 10);
+        if (isNaN(num) || num < 300 || num > 900) { toast('Enter a score between 300 and 900'); return; }
+        NextUpStore.addCreditScoreEntry(DATA, b, num, dateEl.value || undefined);
+        persist();
+        renderProgress();
+        toast(`${labels[b]} score logged`);
+      });
+    });
+
+    if (typeof Chart !== 'undefined') {
+      const scoreCanvas = document.getElementById('creditScoreChart');
+      if (scoreCanvas) {
+        if (progressCharts.score) { progressCharts.score.destroy(); progressCharts.score = null; }
+        const allDates = Array.from(new Set(bureaus.flatMap(b => (cs.bureaus[b].history || []).map(h => h.date)))).sort();
+        progressCharts.score = new Chart(scoreCanvas, {
+          type: 'line',
+          data: {
+            labels: allDates,
+            datasets: bureaus.map(b => {
+              const histByDate = {};
+              (cs.bureaus[b].history || []).forEach(h => { histByDate[h.date] = h.score; });
+              return {
+                label: labels[b],
+                data: allDates.map(d => histByDate[d] !== undefined ? histByDate[d] : null),
+                borderColor: CREDIT_BUREAU_COLORS[b],
+                backgroundColor: CREDIT_BUREAU_COLORS[b] + '20',
+                spanGaps: true,
+                tension: 0.3,
+                pointRadius: 3
+              };
+            })
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: { y: { min: 300, max: 900 } }
+          }
+        });
+      }
+      const trendCanvas = document.getElementById('trendChart');
+      if (trendCanvas) {
+        if (progressCharts.trend) { progressCharts.trend.destroy(); progressCharts.trend = null; }
+        progressCharts.trend = new Chart(trendCanvas, {
+          type: 'line',
+          data: {
+            labels: snaps.map(s => s.period),
+            datasets: [
+              { label: 'Total debt', data: snaps.map(s => s.totalDebtBalance), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', tension: 0.3 },
+              { label: 'Monthly margin', data: snaps.map(s => s.monthlyMargin), borderColor: '#34e0a1', backgroundColor: 'rgba(52,224,161,0.08)', tension: 0.3 }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+          }
+        });
+      }
+    }
+  }
+
+  function renderSettings() {
+    const root = document.getElementById('tab-settings');
+    const isSpecial = USER.isOwner || USER.plan === 'demo';
+
+    root.innerHTML = `
+      <div class="card">
+        <div class="card-head"><h3>Account &amp; Billing</h3><span class="sub">${escapeHtml(planLabel(USER))}</span></div>
+        ${isSpecial ? `
+          <div class="empty-state" style="padding:18px 0;">
+            <div class="ic">${ICON_CARD}</div>
+            ${USER.isOwner ? 'Owner account — billing controls don’t apply here.' : 'Demo account — no billing on this account.'}
+          </div>
+        ` : `
+          <p style="font-size:13.5px;color:var(--text-muted);margin:0 0 14px;">
+            Manage your account, cancel your subscription, view payment history, or change your card — all handled securely inside Stripe's billing portal.
+          </p>
+          <button class="btn btn-secondary" id="settingsBillingBtn"><span class="ic">${ICON_CARD}</span> Manage account &amp; billing</button>
+        `}
+      </div>
+    `;
+
+    if (!isSpecial) {
+      const btn = document.getElementById('settingsBillingBtn');
+      const original = btn.innerHTML;
+      btn.addEventListener('click', async () => {
+        btn.innerHTML = '<span class="ic">' + ICON_CARD + '</span> Loading…';
+        try {
+          const { data, error } = await supabaseClient.functions.invoke('create-billing-portal-session', {
+            body: { returnUrl: window.location.href }
+          });
+          if (error || !data || !data.url) throw new Error((data && data.error) || (error && error.message) || 'Could not open billing portal.');
+          window.location.href = data.url;
+        } catch (err) {
+          btn.innerHTML = original;
+          toast(err.message);
+        }
+      });
+    }
+  }
+
+  // ================================================================
+  // FEEDBACK
+  // ================================================================
+  let feedbackRating = 0;
+
+  function renderFeedback() {
+    const root = document.getElementById('tab-feedback');
+    feedbackRating = 0;
+    root.innerHTML = `
+      <div class="card" style="max-width:560px;">
+        <div class="card-head"><h3>Send feedback</h3><span class="sub">Bugs, ideas, confusing bits — anything. It comes straight to us.</span></div>
+        <div class="meta-grid" style="margin-bottom:12px;">
+          <label>Your name <span style="color:var(--text-faint);font-weight:400;">(optional)</span>
+            <input type="text" id="fbName" placeholder="Jordan Smith">
+          </label>
+          <label>Email <span style="color:var(--text-faint);font-weight:400;">(optional, if you want a reply)</span>
+            <input type="email" id="fbEmail" placeholder="you@example.com">
+          </label>
+        </div>
+        <label style="display:block;font-size:12.5px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">How's it feel so far?</label>
+        <div class="feedback-stars" id="fbStars">
+          ${[1,2,3,4,5].map(n => `<button type="button" data-star="${n}" aria-label="${n} star">&#9733;</button>`).join('')}
+        </div>
+        <label style="display:block;margin-top:12px;">
+          <span style="font-size:12.5px;font-weight:600;color:var(--text-muted);">Message</span>
+          <textarea id="fbMessage" rows="5" placeholder="What worked, what didn't, what you'd want to see..." style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid var(--border-strong);border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;"></textarea>
+        </label>
+        <button class="btn btn-primary" id="fbSubmit" style="margin-top:14px;">Send feedback</button>
+        <div id="fbStatus" style="margin-top:10px;font-size:13px;color:var(--income-green);display:none;">Thanks — your feedback was sent!</div>
+      </div>
+    `;
+
+    root.querySelectorAll('#fbStars button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        feedbackRating = parseInt(btn.dataset.star, 10);
+        root.querySelectorAll('#fbStars button').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.star, 10) <= feedbackRating));
+      });
+    });
+
+    document.getElementById('fbSubmit').addEventListener('click', async () => {
+      const btn = document.getElementById('fbSubmit');
+      const message = document.getElementById('fbMessage').value.trim();
+      if (!message) { toast('Add a message first'); return; }
+      const name = document.getElementById('fbName').value.trim();
+      const email = document.getElementById('fbEmail').value.trim();
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        const { error } = await supabaseClient.from('feedback').insert({
+          name: name || null,
+          email: email || null,
+          message,
+          rating: feedbackRating || null,
+          source: (window.NEXTUP_DEMO_MODE ? 'demo' : 'app'),
+          page: activeTab,
+          user_agent: navigator.userAgent
+        });
+        if (error) throw error;
+        document.getElementById('fbStatus').style.display = 'block';
+        document.getElementById('fbMessage').value = '';
+        toast('Feedback sent — thank you!');
+      } catch (err) {
+        toast('Could not send feedback — try again in a moment.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send feedback';
+      }
+    });
+  }
+
+  // ================================================================
   // GLOBAL EDIT DELEGATION
   // ================================================================
   function applyEdit(el) {
     const { kind, id, field, parse } = el.dataset;
     const item = findItem(kind, id);
     if (!item) return;
-    let val = el.value;
-    if (parse === 'number') val = val === '' ? 0 : parseFloat(val);
-    else if (parse === 'int') val = val === '' ? null : parseInt(val, 10);
+    let val;
+    if (parse === 'bool') {
+      val = el.checked;
+    } else {
+      val = el.value;
+      if (parse === 'number') val = val === '' ? 0 : parseFloat(val);
+      else if (parse === 'int') val = val === '' ? null : parseInt(val, 10);
+    }
     item[field] = val;
+    if (kind === 'income') maybeRecomputeIncomeAmount(item);
     persist();
+  }
+
+  function maybeRecomputeIncomeAmount(item) {
+    if (item && item.type === 'w2' && item.payStructure && item.payStructure !== 'none') {
+      item.amount = NextUpStore.computeNetPayAmount(item);
+    }
+  }
+
+  function updateIncomePayComputed(id) {
+    const item = findItem('income', id);
+    if (!item) return;
+    const amtInput = document.querySelector(`input[data-kind="income"][data-id="${id}"][data-field="amount"]`);
+    if (amtInput) amtInput.value = Number(item.amount).toFixed(2);
+    const totalM = DATA.income.reduce((s, i) => s + NextUpStore.toMonthly(i.amount, i.frequency), 0);
+    const tm = document.getElementById('incomeTotalMonthly'); if (tm) tm.textContent = fmt(totalM) + '/mo';
+    const tw = document.getElementById('incomeTotalWeekly'); if (tw) tw.textContent = fmt(totalM / NextUpStore.WEEK_PER_MONTH) + '/wk';
+    const netDisplay = document.querySelector(`.incomepay-net[data-id="${id}"]`);
+    if (netDisplay) netDisplay.innerHTML = `Estimated net pay: <strong style="color:var(--income-green);">${NextUpStore.fmtMoney(item.amount)}</strong> / ${item.frequency} (this is an estimate — check your actual pay stub for exact withholding)`;
   }
 
   function bindGlobalDelegation() {
@@ -860,6 +1609,13 @@ const NextUpApp = (() => {
         const tw = document.getElementById('incomeTotalWeekly'); if (tw) tw.textContent = fmt(totalM / NextUpStore.WEEK_PER_MONTH) + '/wk';
       } else if (el.dataset.live === 'business') {
         updateBusinessTotals();
+      } else if (el.dataset.live === 'incomepay') {
+        updateIncomePayComputed(el.dataset.id);
+      } else if (el.dataset.live === 'savings') {
+        const t = NextUpStore.computeSavingsTotals(DATA.savings);
+        const tm = document.getElementById('savTotalMonthly'); if (tm) tm.textContent = fmt(t.monthly) + '/mo';
+        const te = document.getElementById('savExpenseMonthly'); if (te) te.textContent = fmt(t.expenseMonthly) + '/mo';
+        const tt = document.getElementById('savTransferMonthly'); if (tt) tt.textContent = fmt(t.transferMonthly) + '/mo';
       }
     });
 
@@ -872,6 +1628,7 @@ const NextUpApp = (() => {
         else if (activeTab === 'bills') renderBills();
         else if (activeTab === 'debts') renderDebts();
         else if (activeTab === 'business') renderBusiness();
+        else if (activeTab === 'savings') renderSavings();
       } else if (el.dataset.kind === 'debts') {
         updateDebtCardComputed(el.dataset.id);
       } else if (String(el.dataset.kind).startsWith('business')) {
@@ -880,6 +1637,14 @@ const NextUpApp = (() => {
     });
 
     document.addEventListener('click', (e) => {
+      const payToggle = e.target.closest('.income-pay-toggle');
+      if (payToggle) {
+        const id = payToggle.dataset.id;
+        if (incomePayOpenIds.has(id)) incomePayOpenIds.delete(id);
+        else incomePayOpenIds.add(id);
+        renderIncome();
+        return;
+      }
       const del = e.target.closest('[data-delete]');
       if (!del) return;
       const kind = del.dataset.delete, id = del.dataset.id;
@@ -892,7 +1657,8 @@ const NextUpApp = (() => {
       if (kind === 'income') renderIncome();
       else if (kind === 'bills') renderBills();
       else if (kind === 'debts') renderDebts();
-      else if (kind === 'business.income' || kind === 'business.expenses') renderBusiness();
+      else if (kind === 'business.income' || kind === 'business.expenses' || kind === 'business.transactions') renderBusiness();
+      else if (kind === 'savings') renderSavings();
       toast('Deleted');
     });
   }

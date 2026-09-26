@@ -123,9 +123,50 @@ const NextUpSeed = (() => {
       ],
 
       business: {
-        income: [],
-        expenses: []
-      }
+        income: [
+          { id: u('bizinc'), name: 'Freelance Client A', owner: 'business', amount: 600.00, frequency: 'monthly', dueDay: 5, notes: 'Retainer' },
+          { id: u('bizinc'), name: 'Freelance Client B', owner: 'business', amount: 350.00, frequency: 'monthly', dueDay: 18, notes: 'Project work' }
+        ],
+        expenses: [
+          { id: u('bizexp'), name: 'Software subscriptions', amount: 45.00, frequency: 'monthly', dueDay: 1, status: 'active', notes: '' },
+          { id: u('bizexp'), name: 'Business insurance', amount: 60.00, frequency: 'monthly', dueDay: 15, status: 'active', notes: '' }
+        ],
+        transactions: []
+      },
+
+      savings: [
+        { id: u('sav'), name: 'Emergency Fund', category: 'savings', kind: 'transfer', amount: 150.00, frequency: 'monthly', dueDay: 1, notes: 'High-yield savings account' },
+        { id: u('sav'), name: '401k Contribution', category: 'retirement', kind: 'expense', amount: 200.00, frequency: 'monthly', dueDay: 1, notes: 'Employer match 3%' },
+        { id: u('sav'), name: 'Brokerage (Index Funds)', category: 'investing', kind: 'transfer', amount: 100.00, frequency: 'monthly', dueDay: 15, notes: '' }
+      ],
+
+      creditScore: {
+        bureaus: {
+          experian: { current: 682, history: [
+            { date: '2026-05-01', score: 641 }, { date: '2026-06-01', score: 652 },
+            { date: '2026-07-01', score: 660 }, { date: '2026-08-01', score: 671 },
+            { date: '2026-09-01', score: 682 }
+          ] },
+          transunion: { current: 675, history: [
+            { date: '2026-05-01', score: 630 }, { date: '2026-06-01', score: 644 },
+            { date: '2026-07-01', score: 655 }, { date: '2026-08-01', score: 664 },
+            { date: '2026-09-01', score: 675 }
+          ] },
+          equifax: { current: 669, history: [
+            { date: '2026-05-01', score: 625 }, { date: '2026-06-01', score: 638 },
+            { date: '2026-07-01', score: 649 }, { date: '2026-08-01', score: 658 },
+            { date: '2026-09-01', score: 669 }
+          ] }
+        }
+      },
+
+      snapshots: [
+        { period: '2026-05', date: '2026-05-01', totalDebtBalance: 27100, monthlyMargin: 210, totalIncomeMonthly: 3060, totalExpensesMonthly: 2850, savingsMonthly: 350 },
+        { period: '2026-06', date: '2026-06-01', totalDebtBalance: 26200, monthlyMargin: 260, totalIncomeMonthly: 3060, totalExpensesMonthly: 2800, savingsMonthly: 400 },
+        { period: '2026-07', date: '2026-07-01', totalDebtBalance: 25550, monthlyMargin: 300, totalIncomeMonthly: 3120, totalExpensesMonthly: 2820, savingsMonthly: 420 },
+        { period: '2026-08', date: '2026-08-01', totalDebtBalance: 24900, monthlyMargin: 340, totalIncomeMonthly: 3120, totalExpensesMonthly: 2780, savingsMonthly: 450 },
+        { period: '2026-09', date: '2026-09-01', totalDebtBalance: 24770, monthlyMargin: 375, totalIncomeMonthly: 3170, totalExpensesMonthly: 2795, savingsMonthly: 450 }
+      ]
     };
   }
 

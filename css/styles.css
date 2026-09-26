@@ -447,6 +447,10 @@ ul { margin: 0; padding: 0; list-style: none; }
 .debt-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12.5px; color: var(--text-muted); flex-wrap: wrap; gap: 8px; }
 .debt-foot strong { color: var(--chase-blue-dark); }
 @media (max-width: 900px) { .debt-meta-grid { grid-template-columns: repeat(2,1fr); } }
+.debt-card-header { cursor: pointer; }
+.debt-card-header .chev { color: var(--text-faint); transition: transform .25s ease; flex-shrink: 0; }
+.debt-card.open .debt-card-header .chev { transform: rotate(180deg); }
+.debt-card-body { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
 
 /* ---------- calendar ---------- */
 .cal-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
@@ -483,6 +487,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 .cal-chip.business-expense { background: var(--business-orange-bg); color: var(--business-orange); border-color: var(--business-orange); }
 .cal-more { font-size: 10px; color: var(--text-faint); font-weight: 700; }
 .cal-day-total { font-size: 10px; font-weight: 700; color: var(--text-faint); margin-top: auto; padding-top: 2px; }
+.cal-day-net { display: none; }
+.cal-day-dots { display: none; }
 
 /* ---------- day detail modal ---------- */
 .modal-overlay {
@@ -526,6 +532,21 @@ ul { margin: 0; padding: 0; list-style: none; }
   opacity: 0; transform: translateY(10px); transition: all .2s ease; pointer-events: none;
 }
 .toast.show { opacity: 1; transform: none; }
+
+.pwa-install-banner {
+  position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 300;
+  background: var(--chase-blue-darker); color: #fff; border-radius: 14px; box-shadow: var(--shadow-lg);
+  opacity: 0; transform: translateY(16px); transition: all .25s ease; pointer-events: none;
+}
+.pwa-install-banner.show { opacity: 1; transform: none; pointer-events: auto; }
+.pwa-install-inner { display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; max-width: 640px; margin: 0 auto; }
+.pwa-install-icon { flex: none; width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; }
+.pwa-install-icon svg { width: 18px; height: 18px; }
+.pwa-install-text { flex: 1; font-size: 13px; line-height: 1.4; }
+.pwa-install-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.pwa-install-dismiss { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 20px; line-height: 1; cursor: pointer; padding: 4px 6px; }
+.pwa-install-dismiss:hover { color: #fff; }
+@media (max-width: 640px) { .pwa-install-inner { flex-wrap: wrap; } .pwa-install-text { flex-basis: 100%; order: 1; } .pwa-install-actions { order: 2; margin-left: 44px; } }
 
 /* ============================================================
    Mobile — landing page nav
@@ -573,7 +594,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .sidebar-backdrop { display: none; }
 
 @media (max-width: 860px) {
-  .app-shell { flex-direction: column; }
+  .app-shell { flex-direction: column; min-height: 0; }
 
   .mobile-topbar {
     display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 60;
@@ -607,7 +628,7 @@ ul { margin: 0; padding: 0; list-style: none; }
   .side-footer { display: block; }
   .sidebar .brand { display: none; }
 
-  .main { padding: 18px 16px 40px; }
+  .main { padding: 18px 16px 32px; flex: none; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .feature-grid, .how-grid { grid-template-columns: 1fr; }
   .hero h1 { font-size: 34px; }
@@ -641,11 +662,26 @@ ul { margin: 0; padding: 0; list-style: none; }
   .cal-nav .month-label { min-width: 0; font-size: 15px; }
   .cal-filters { justify-content: center; }
   .cal-grid { gap: 4px; }
-  .cal-cell { min-height: 52px; padding: 4px; border-radius: 8px; }
+  .cal-cell { min-height: 52px; padding: 4px; border-radius: 8px; display: flex; flex-direction: column; align-items: flex-start; }
   .cal-date { font-size: 10.5px; }
-  .cal-chips { flex-direction: row; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
-  .cal-chip { width: 7px; height: 7px; min-width: 0; padding: 0; border-radius: 50%; font-size: 0; border-left: none; overflow: visible; }
-  .cal-more, .cal-day-total { display: none; }
+  .cal-chips, .cal-more, .cal-day-total { display: none; }
+  .cal-day-net {
+    display: block; font-size: 11px; font-weight: 800; margin-top: auto; line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .cal-day-net.pos { color: var(--income-green); }
+  .cal-day-net.neg { color: var(--debt-red); }
+  .cal-day-dots { display: flex; gap: 2px; margin-top: 2px; flex-wrap: wrap; }
+  .cal-dot-mini { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .cal-dot-mini.bill { background: var(--bill-blue); }
+  .cal-dot-mini.debt { background: var(--debt-red); }
+  .cal-dot-mini.income, .cal-dot-mini.business-income { background: var(--income-green); }
+  .cal-dot-mini.business-expense { background: var(--business-orange); }
+}
+
+@media (max-width: 380px) {
+  .cal-cell { min-height: 46px; }
+  .cal-day-net { font-size: 10px; }
 }
 
 /* ---------- legal pages ---------- */
@@ -658,3 +694,43 @@ ul { margin: 0; padding: 0; list-style: none; }
 .legal-wrap li { margin-top: 6px; }
 .legal-wrap a { color: var(--chase-blue); font-weight: 600; }
 .legal-notice { margin-top: 28px; padding: 14px 16px; background: var(--chase-blue-light); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+
+/* ---------- demo mode banner + guided tour ---------- */
+.demo-banner {
+  background: linear-gradient(90deg, var(--chase-blue-darker), var(--chase-blue));
+  color: #fff; padding: 10px 18px; display: flex; align-items: center; justify-content: center;
+  gap: 12px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; text-align: center;
+}
+.demo-banner .tag {
+  background: var(--income-green); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
+}
+.demo-banner .btn { padding: 6px 12px; font-size: 12.5px; }
+.demo-banner .btn-secondary { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.3); }
+.demo-banner .btn-secondary:hover { background: rgba(255,255,255,0.22); border-color: #fff; }
+.demo-banner .btn-primary { background: var(--income-green); border-color: var(--income-green); }
+.demo-banner .btn-primary:hover { background: #14724f; }
+@media (max-width: 640px) {
+  .demo-banner { padding: 9px 12px; font-size: 12.5px; }
+}
+
+.tour-highlight {
+  position: relative; z-index: 61;
+  box-shadow: 0 0 0 3px rgba(52,224,161,0.9), 0 0 0 7px rgba(52,224,161,0.28);
+  border-radius: 8px;
+}
+.tour-tooltip {
+  position: fixed; z-index: 500; width: 272px; max-width: calc(100vw - 24px);
+  background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg);
+  padding: 14px 16px;
+}
+.tour-tooltip .tour-step-count { font-size: 11px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.tour-tooltip .tour-text { font-size: 13.5px; color: var(--ink, #16233b); line-height: 1.5; margin-bottom: 12px; }
+.tour-tooltip .tour-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.feedback-stars { display: flex; gap: 6px; margin: 4px 0 2px; }
+.feedback-stars button {
+  background: none; border: none; cursor: pointer; font-size: 26px; line-height: 1; padding: 2px;
+  color: var(--border-strong); transition: color .12s;
+}
+.feedback-stars button.selected, .feedback-stars button:hover { color: #f2b705; }

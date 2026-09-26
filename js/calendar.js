@@ -21,6 +21,14 @@ const NextUpCalendar = (() => {
     return { bill: 'Bill', debt: 'Debt', income: 'Income', 'business-income': 'Business income', 'business-expense': 'Business' }[kind] || kind;
   }
 
+  function fmtCompact(n) {
+    const num = Number(n) || 0;
+    const sign = num < 0 ? '-' : '+';
+    const abs = Math.abs(num);
+    const rounded = abs >= 1000 ? Math.round(abs / 100) / 10 + 'k' : Math.round(abs);
+    return sign + '$' + rounded;
+  }
+
   function mount(root, getData) {
     state.root = root;
     state.getData = getData;
@@ -111,6 +119,8 @@ const NextUpCalendar = (() => {
             ${extra > 0 ? `<div class="cal-more">+${extra} more</div>` : ''}
           </div>
           ${dayEvents.length ? `<div class="cal-day-total">Net ${total >= 0 ? '+' : ''}${NextUpStore.fmtMoney(total)}</div>` : ''}
+          ${dayEvents.length ? `<div class="cal-day-net ${total >= 0 ? 'pos' : 'neg'}">${fmtCompact(total)}</div>` : ''}
+          ${dayEvents.length > 1 ? `<div class="cal-day-dots">${dayEvents.slice(0, 4).map(e => `<span class="cal-dot-mini ${e.kind}"></span>`).join('')}</div>` : ''}
         </div>`;
     }
     root.querySelector('#calCells').innerHTML = html;
